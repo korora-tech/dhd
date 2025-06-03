@@ -1,8 +1,8 @@
-use crate::{Atom, Result, DhdError};
+use crate::{Atom, DhdError, Result};
+use chrono::Local;
 use std::fs;
 use std::os::unix::fs as unix_fs;
 use std::path::{Path, PathBuf};
-use chrono::Local;
 
 pub struct LinkDotfile {
     source: PathBuf,
@@ -23,9 +23,9 @@ impl LinkDotfile {
 
     fn expand_tilde(path: &Path) -> PathBuf {
         if let Some(path_str) = path.to_str() {
-            if path_str.starts_with("~/") {
+            if let Some(stripped) = path_str.strip_prefix("~/") {
                 if let Some(home) = dirs::home_dir() {
-                    return home.join(&path_str[2..]);
+                    return home.join(stripped);
                 }
             }
         }
@@ -35,10 +35,10 @@ impl LinkDotfile {
     fn get_target_path(&self) -> Result<PathBuf> {
         match &self.target {
             Some(target) => {
-                let target_str = target.to_str().ok_or_else(|| {
-                    DhdError::AtomExecution("Invalid target path".to_string())
-                })?;
-                
+                let target_str = target
+                    .to_str()
+                    .ok_or_else(|| DhdError::AtomExecution("Invalid target path".to_string()))?;
+
                 // If target is absolute or starts with ~, use it as-is (with tilde expansion)
                 if target_str.starts_with('/') || target_str.starts_with('~') {
                     Ok(Self::expand_tilde(target))
@@ -55,11 +55,11 @@ impl LinkDotfile {
                 let source_filename = self.source.file_name().ok_or_else(|| {
                     DhdError::AtomExecution("Source path has no filename".to_string())
                 })?;
-                
+
                 let config_dir = dirs::config_dir().ok_or_else(|| {
                     DhdError::AtomExecution("Could not determine XDG_CONFIG_HOME".to_string())
                 })?;
-                
+
                 Ok(config_dir.join(source_filename))
             }
         }
@@ -80,7 +80,7 @@ impl Atom for LinkDotfile {
     fn check(&self) -> Result<bool> {
         let source = Self::expand_tilde(&self.source);
         let target = self.get_target_path()?;
-        
+
         // Check if source exists
         if !source.exists() {
             return Err(DhdError::AtomExecution(format!(
@@ -156,7 +156,11 @@ impl Atom for LinkDotfile {
 
         // Create the symlink
         unix_fs::symlink(&source, &target)?;
-        tracing::info!("Created symlink: {} -> {}", target.display(), source.display());
+        tracing::info!(
+            "Created symlink: {} -> {}",
+            target.display(),
+            source.display()
+        );
 
         Ok(())
     }
@@ -164,9 +168,15 @@ impl Atom for LinkDotfile {
     fn describe(&self) -> String {
         let target_str = match &self.target {
             Some(t) => t.display().to_string(),
-            None => format!("$XDG_CONFIG_HOME/{}", self.source.file_name().unwrap_or_default().to_string_lossy())
+            None => format!(
+                "$XDG_CONFIG_HOME/{}",
+                self.source
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+            ),
         };
-        
+
         let mut desc = format!(
             "Link dotfile from {} to {}",
             self.source.display(),
@@ -185,9 +195,9 @@ impl Atom for LinkDotfile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs::File;
     use std::io::Write;
+    use tempfile::TempDir;
 
     #[test]
     fn test_link_dotfile_check_when_source_missing() {
@@ -201,10 +211,15 @@ mod tests {
             false,
             false,
         );
-        
+
         let result = atom.check();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Source file does not exist"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Source file does not exist")
+        );
     }
 
     #[test]
@@ -222,7 +237,7 @@ mod tests {
             false,
             false,
         );
-        
+
         assert!(atom.check().unwrap());
     }
 
@@ -242,7 +257,7 @@ mod tests {
             false,
             false,
         );
-        
+
         assert!(!atom.check().unwrap());
     }
 
@@ -262,7 +277,7 @@ mod tests {
             false,
             true, // force
         );
-        
+
         assert!(atom.check().unwrap());
     }
 
@@ -282,9 +297,9 @@ mod tests {
             false,
             false,
         );
-        
+
         atom.execute().unwrap();
-        
+
         assert!(target.exists());
         assert_eq!(fs::read_link(&target).unwrap(), source);
     }
@@ -304,9 +319,9 @@ mod tests {
             false,
             false,
         );
-        
+
         atom.execute().unwrap();
-        
+
         assert!(target.exists());
         assert!(target.parent().unwrap().exists());
     }
@@ -329,22 +344,18 @@ mod tests {
             true, // backup
             false,
         );
-        
+
         atom.execute().unwrap();
-        
+
         // Check symlink was created
         assert!(target.exists());
         assert_eq!(fs::read_link(&target).unwrap(), source);
-        
+
         // Check backup was created
         let backups: Vec<_> = fs::read_dir(temp_dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .contains(".config.backup.")
-            })
+            .filter(|e| e.file_name().to_string_lossy().contains(".config.backup."))
             .collect();
         assert_eq!(backups.len(), 1);
     }
@@ -367,9 +378,9 @@ mod tests {
             false,
             true, // force
         );
-        
+
         atom.execute().unwrap();
-        
+
         assert_eq!(fs::read_link(&target).unwrap(), source2);
     }
 
@@ -381,7 +392,7 @@ mod tests {
             true,
             false,
         );
-        
+
         assert_eq!(
             atom.describe(),
             "Link dotfile from /home/user/dotfiles/vimrc to ~/.vimrc (with backup)"
@@ -396,7 +407,7 @@ mod tests {
             false,
             true,
         );
-        
+
         assert_eq!(
             atom.describe(),
             "Link dotfile from /home/user/dotfiles/vimrc to ~/.vimrc (force)"
@@ -407,49 +418,39 @@ mod tests {
     fn test_link_dotfile_with_no_target() {
         let temp_dir = TempDir::new().unwrap();
         let source = temp_dir.path().join("zellij.kdl");
-        
+
         // Create source file
         File::create(&source).unwrap();
-        
-        let atom = LinkDotfile::new(
-            source.to_string_lossy().to_string(),
-            None,
-            false,
-            false,
-        );
-        
+
+        let atom = LinkDotfile::new(source.to_string_lossy().to_string(), None, false, false);
+
         // Should not error during check
         assert!(atom.check().is_ok());
     }
-    
+
     #[test]
     fn test_link_dotfile_with_relative_target() {
         let temp_dir = TempDir::new().unwrap();
         let source = temp_dir.path().join("zellij.kdl");
-        
+
         // Create source file
         File::create(&source).unwrap();
-        
+
         let atom = LinkDotfile::new(
             source.to_string_lossy().to_string(),
             Some("zellij/config.kdl".to_string()),
             false,
             false,
         );
-        
+
         // Should not error during check
         assert!(atom.check().is_ok());
     }
 
     #[test]
     fn test_link_dotfile_describe_with_no_target() {
-        let atom = LinkDotfile::new(
-            "zellij.kdl".to_string(),
-            None,
-            false,
-            false,
-        );
-        
+        let atom = LinkDotfile::new("zellij.kdl".to_string(), None, false, false);
+
         assert_eq!(
             atom.describe(),
             "Link dotfile from zellij.kdl to $XDG_CONFIG_HOME/zellij.kdl"

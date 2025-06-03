@@ -1,0 +1,1 @@
+- Always run cargo fmt and clippy before commiting

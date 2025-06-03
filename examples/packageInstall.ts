@@ -37,9 +37,19 @@ export default defineModule("packageInstall")
 
 		// Language-specific package managers
 		packageInstall({
-			go: "github.com/runmedev/runme@latest",
+			names: ["github.com/runmedev/runme@latest"],
+			manager: "go"
 		}),
 		packageInstall({
-			cargo: "zellij",
+			names: ["zellij"],
+			manager: "cargo"
+		}),
+		packageInstall({
+			names: ["@biomejs/biome"],
+			manager: "bun"
+		}),
+		packageInstall({
+			names: ["https://deno.land/x/deploy_cli/deployctl.ts"],
+			manager: "deno"
 		}),
 	]);
