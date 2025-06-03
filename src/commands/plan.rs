@@ -63,18 +63,108 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
     if ordered_modules.is_empty() {
         println!("No modules to execute.");
     } else {
+        let mut total_actions = 0;
+
         for (idx, module) in ordered_modules.iter().enumerate() {
-            println!("{}. Module: {}", idx + 1, module.id);
+            println!(
+                "{}. Module: {} {}",
+                idx + 1,
+                module.id,
+                if !module.dependencies.is_empty() {
+                    format!("(depends on: {})", module.dependencies.join(", "))
+                } else {
+                    String::new()
+                }
+            );
+
             if let Some(desc) = &module.description {
-                println!("   Description: {}", desc);
+                println!("   {}", desc);
             }
-            if !module.dependencies.is_empty() {
-                println!("   Dependencies: {}", module.dependencies.join(", "));
+
+            if module.actions.is_empty() {
+                println!("   └─ No actions defined");
+            } else {
+                println!("   Actions:");
+                for (action_idx, action) in module.actions.iter().enumerate() {
+                    let is_last = action_idx == module.actions.len() - 1;
+                    let prefix = if is_last { "└─" } else { "├─" };
+
+                    match action.action_type.as_str() {
+                        "packageInstall" => {
+                            let packages = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "packages")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let manager = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "manager")
+                                .map(|(_, v)| format!(" via {}", v))
+                                .unwrap_or_default();
+                            println!("   {} Install packages{}: {}", prefix, manager, packages);
+                        }
+                        "linkDotfile" => {
+                            let source = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "source")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let target = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "target")
+                                .map(|(_, v)| format!(" → {}", v))
+                                .unwrap_or_else(|| format!(" → $XDG_CONFIG_HOME/{}", source));
+                            let options = action
+                                .params
+                                .iter()
+                                .filter(|(k, v)| (k == "backup" || k == "force") && v == "true")
+                                .map(|(k, _)| k.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let options_str = if !options.is_empty() {
+                                format!(" ({})", options)
+                            } else {
+                                String::new()
+                            };
+                            println!(
+                                "   {} Link dotfile: {}{}{}",
+                                prefix, source, target, options_str
+                            );
+                        }
+                        "executeCommand" => {
+                            let command = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "command")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let args = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "args")
+                                .map(|(_, v)| format!(" {}", v))
+                                .unwrap_or_default();
+                            println!("   {} Execute: {}{}", prefix, command, args);
+                        }
+                        _ => {
+                            println!("   {} {}: {:?}", prefix, action.action_type, action.params);
+                        }
+                    }
+                    total_actions += 1;
+                }
             }
             println!();
         }
 
-        println!("Total modules to execute: {}", ordered_modules.len());
+        println!(
+            "Summary: {} modules, {} actions",
+            ordered_modules.len(),
+            total_actions
+        );
     }
 
     Ok(PlanResult {
