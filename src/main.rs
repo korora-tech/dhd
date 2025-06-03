@@ -89,7 +89,7 @@ fn main() -> Result<()> {
     match cli.cmd {
         Some(Command::Plan(args)) => {
             let modules_path = args.modules_path.or(config.modules_path.map(Into::into));
-            commands::plan::execute(args.modules, modules_path)?;
+            commands::plan::execute_and_display(args.modules, modules_path)?;
         }
         Some(Command::Apply(args)) => {
             let modules_path = args.modules_path.or(config.modules_path.map(Into::into));
