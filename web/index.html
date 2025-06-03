@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>DHD - Declarative Home Deployments</title>
+	<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+	<div id="app">
+		<header>
+			<h1>DHD</h1>
+			<p>Declarative Home Deployments</p>
+		</header>
+		
+		<main>
+			<aside class="sidebar">
+				<div class="filter-section">
+					<h3>Filter Modules</h3>
+					<input 
+						type="text" 
+						id="search" 
+						placeholder="Search modules..."
+						class="search-input"
+					>
+					<div class="tags-filter" id="tags-filter">
+						<!-- Tags will be populated dynamically -->
+					</div>
+				</div>
+				
+				<div class="modules-list" id="modules-list">
+					<!-- Modules will be populated dynamically -->
+				</div>
+			</aside>
+			
+			<section class="content">
+				<div class="action-bar">
+					<button id="select-all" class="btn btn-secondary">Select All</button>
+					<button id="deselect-all" class="btn btn-secondary">Deselect All</button>
+					<button id="plan-btn" class="btn btn-primary">Generate Plan</button>
+					<button id="apply-btn" class="btn btn-success" disabled>Apply</button>
+				</div>
+				
+				<div id="plan-view" class="plan-view hidden">
+					<h2>Execution Plan</h2>
+					<div id="plan-content"></div>
+				</div>
+				
+				<div id="progress-view" class="progress-view hidden">
+					<h2>Progress</h2>
+					<div class="progress-bar">
+						<div class="progress-fill" id="progress-fill"></div>
+					</div>
+					<div id="progress-log"></div>
+				</div>
+			</section>
+		</main>
+	</div>
+	
+	<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Rust
+/target
+
+# Node / Bun
+node_modules/
+bun.lock
+
+# Build artifacts
+dist/
+
+# Misc
+*.log
+*.tmp
+*.swp

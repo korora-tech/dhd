@@ -1,0 +1,27 @@
+codecov:
+  require_ci_to_pass: yes
+
+coverage:
+  status:
+    project:
+      default:
+        # Require at least 70% coverage
+        target: 70%
+        threshold: 2%
+    patch:
+      default:
+        # Require at least 80% coverage on new code
+        target: 80%
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
+
+comment:
+  layout: "reach,diff,flags,files,footer"
+  behavior: default
+  require_changes: false

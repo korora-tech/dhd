@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  publish-jsr:
+    name: Publish Types to JSR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Update version in deno.json
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          cd types
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" deno.json
+          
+      - name: Publish to JSR
+        run: |
+          cd types
+          bunx jsr publish
+
+  release:
+    name: Release Build and Publish
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Bun (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: oven-sh/install-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install web dependencies
+        shell: bash
+        run: |
+          if command -v bun >/dev/null 2>&1; then
+            bun install
+          else
+            npm ci
+          fi
+
+      - name: Build web assets
+        shell: bash
+        run: |
+          if command -v bun >/dev/null 2>&1; then
+            bun run build
+          else
+            npm run build
+          fi
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build and Release Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'DHD ${{ github.ref_name }}'
+          releaseBody: 'See the assets to download and install this version.'
+          releaseDraft: false
+          prerelease: false

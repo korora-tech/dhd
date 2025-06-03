@@ -1,0 +1,84 @@
+[package]
+name = "dhd"
+version = "0.1.0"
+edition = "2024"
+authors = ["DHD Contributors"]
+description = "Declarative Home Deployments - A dotfile management system"
+license = "MIT"
+# Repository metadata for crates.io
+repository = "https://github.com/korora-tech/dhd"
+homepage   = "https://github.com/korora-tech/dhd"
+documentation = "https://docs.rs/dhd"
+readme = "README.md"
+
+# Encourage discoverability on crates.io
+keywords = ["dotfiles", "configuration", "devops", "tauri", "tui"]
+categories = ["command-line-utilities", "config", "development-tools"]
+
+# Minimum supported Rust version
+rust-version = "1.85"
+default-run = "dhd"
+
+# Only ship the essential files to crates.io – all other assets such as the
+# compiled web frontend, Node.js tooling, examples, etc. are not required to
+# build the Rust crate and unnecessarily bloat the tarball.
+include = [
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+    "src/**",
+]
+
+# Explicitly exclude large or irrelevant directories that are not required to
+# build the crate on crates.io. Using `exclude` here ensures we don't pull in
+# matching files from nested directories via the short `README.md` / `LICENSE`
+# patterns above.
+exclude = [
+    "node_modules/**",
+    "dist/**",
+    "target/**",
+    "web/**",
+    "examples/**",
+    "types/**",
+    "bun.lock",
+]
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rayon = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+confy = "0.6"
+exitcode = "1.1"
+oxc = "0.49"
+petgraph = "0.6"
+tauri = { version = "2.5", features = [], optional = true }
+ratatui = { version = "0.29", optional = true }
+crossterm = { version = "0.28", optional = true }
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.14"
+
+[features]
+default = ["desktop", "tui"]
+async = ["tokio"]
+desktop = ["tauri"]
+tui = ["ratatui", "crossterm"]
+
+[dependencies.tokio]
+version = "1.42"
+features = ["full"]
+optional = true
+
+[[bin]]
+name = "dhd"
+path = "src/main.rs"
