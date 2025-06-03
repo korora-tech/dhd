@@ -2,7 +2,7 @@ import { Action } from "./base";
 
 export interface LinkDotfileOptions {
   source: string;
-  target: string;
+  target?: string;
   backup?: boolean;
   force?: boolean;
 }
