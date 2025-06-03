@@ -51,13 +51,13 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let source = temp_dir.path().join("source.txt");
         let target = temp_dir.path().join("target.txt");
-        
+
         // Create source file
         fs::File::create(&source).unwrap();
-        
+
         let atom = CreateSymlink::new(
             source.to_string_lossy().to_string(),
-            target.to_string_lossy().to_string()
+            target.to_string_lossy().to_string(),
         );
         assert!(atom.check().unwrap());
     }
@@ -67,14 +67,14 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let source = temp_dir.path().join("source.txt");
         let target = temp_dir.path().join("target.txt");
-        
+
         // Create source file and symlink
         fs::File::create(&source).unwrap();
         unix_fs::symlink(&source, &target).unwrap();
-        
+
         let atom = CreateSymlink::new(
             source.to_string_lossy().to_string(),
-            target.to_string_lossy().to_string()
+            target.to_string_lossy().to_string(),
         );
         assert!(!atom.check().unwrap());
     }
@@ -85,15 +85,15 @@ mod tests {
         let source1 = temp_dir.path().join("source1.txt");
         let source2 = temp_dir.path().join("source2.txt");
         let target = temp_dir.path().join("target.txt");
-        
+
         // Create source files and symlink to source1
         fs::File::create(&source1).unwrap();
         fs::File::create(&source2).unwrap();
         unix_fs::symlink(&source1, &target).unwrap();
-        
+
         let atom = CreateSymlink::new(
             source2.to_string_lossy().to_string(),
-            target.to_string_lossy().to_string()
+            target.to_string_lossy().to_string(),
         );
         assert!(atom.check().unwrap());
     }
@@ -103,14 +103,14 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let source = temp_dir.path().join("source.txt");
         let target = temp_dir.path().join("target.txt");
-        
+
         // Create source file and regular file at target
         fs::File::create(&source).unwrap();
         fs::File::create(&target).unwrap();
-        
+
         let atom = CreateSymlink::new(
             source.to_string_lossy().to_string(),
-            target.to_string_lossy().to_string()
+            target.to_string_lossy().to_string(),
         );
         assert!(atom.check().unwrap());
     }
@@ -120,16 +120,16 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let source = temp_dir.path().join("source.txt");
         let target = temp_dir.path().join("target.txt");
-        
+
         // Create source file
         fs::File::create(&source).unwrap();
-        
+
         let atom = CreateSymlink::new(
             source.to_string_lossy().to_string(),
-            target.to_string_lossy().to_string()
+            target.to_string_lossy().to_string(),
         );
         atom.execute().unwrap();
-        
+
         assert!(target.exists());
         assert_eq!(fs::read_link(&target).unwrap(), source);
     }
@@ -139,27 +139,27 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let source = temp_dir.path().join("source.txt");
         let target = temp_dir.path().join("target.txt");
-        
+
         // Create source file and existing file at target
         fs::File::create(&source).unwrap();
         fs::File::create(&target).unwrap();
-        
+
         let atom = CreateSymlink::new(
             source.to_string_lossy().to_string(),
-            target.to_string_lossy().to_string()
+            target.to_string_lossy().to_string(),
         );
         atom.execute().unwrap();
-        
+
         assert!(target.exists());
         assert_eq!(fs::read_link(&target).unwrap(), source);
     }
 
     #[test]
     fn test_create_symlink_describe() {
-        let atom = CreateSymlink::new(
-            "/path/to/source".to_string(),
-            "/path/to/target".to_string()
+        let atom = CreateSymlink::new("/path/to/source".to_string(), "/path/to/target".to_string());
+        assert_eq!(
+            atom.describe(),
+            "Create symlink from /path/to/source to /path/to/target"
         );
-        assert_eq!(atom.describe(), "Create symlink from /path/to/source to /path/to/target");
     }
 }

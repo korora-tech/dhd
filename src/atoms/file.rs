@@ -103,8 +103,12 @@ mod tests {
     #[test]
     fn test_create_file_check_when_not_exists() {
         let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.txt").to_string_lossy().to_string();
-        
+        let file_path = temp_dir
+            .path()
+            .join("test.txt")
+            .to_string_lossy()
+            .to_string();
+
         let atom = CreateFile::new(file_path, false);
         assert!(atom.check().unwrap());
     }
@@ -114,7 +118,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         fs::File::create(&file_path).unwrap();
-        
+
         let atom = CreateFile::new(file_path.to_string_lossy().to_string(), false);
         assert!(!atom.check().unwrap());
     }
@@ -124,7 +128,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         fs::File::create(&file_path).unwrap();
-        
+
         let atom = CreateFile::new(file_path.to_string_lossy().to_string(), true);
         assert!(atom.check().unwrap());
     }
@@ -133,10 +137,10 @@ mod tests {
     fn test_create_file_execute() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
-        
+
         let atom = CreateFile::new(file_path.to_string_lossy().to_string(), false);
         atom.execute().unwrap();
-        
+
         assert!(file_path.exists());
     }
 
@@ -144,7 +148,7 @@ mod tests {
     fn test_create_file_describe() {
         let atom = CreateFile::new("/test/path.txt".to_string(), false);
         assert_eq!(atom.describe(), "Create file /test/path.txt");
-        
+
         let atom_force = CreateFile::new("/test/path.txt".to_string(), true);
         assert_eq!(atom_force.describe(), "Create file /test/path.txt (force)");
     }
@@ -152,8 +156,12 @@ mod tests {
     #[test]
     fn test_set_file_content_check_when_not_exists() {
         let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.txt").to_string_lossy().to_string();
-        
+        let file_path = temp_dir
+            .path()
+            .join("test.txt")
+            .to_string_lossy()
+            .to_string();
+
         let atom = SetFileContent::new(file_path, "content".to_string());
         assert!(atom.check().unwrap());
     }
@@ -163,8 +171,11 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         fs::write(&file_path, "old content").unwrap();
-        
-        let atom = SetFileContent::new(file_path.to_string_lossy().to_string(), "new content".to_string());
+
+        let atom = SetFileContent::new(
+            file_path.to_string_lossy().to_string(),
+            "new content".to_string(),
+        );
         assert!(atom.check().unwrap());
     }
 
@@ -173,8 +184,11 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         fs::write(&file_path, "same content").unwrap();
-        
-        let atom = SetFileContent::new(file_path.to_string_lossy().to_string(), "same content".to_string());
+
+        let atom = SetFileContent::new(
+            file_path.to_string_lossy().to_string(),
+            "same content".to_string(),
+        );
         assert!(!atom.check().unwrap());
     }
 
@@ -182,11 +196,12 @@ mod tests {
     fn test_set_file_content_execute() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
-        
+
         let content = "test content";
-        let atom = SetFileContent::new(file_path.to_string_lossy().to_string(), content.to_string());
+        let atom =
+            SetFileContent::new(file_path.to_string_lossy().to_string(), content.to_string());
         atom.execute().unwrap();
-        
+
         assert_eq!(fs::read_to_string(&file_path).unwrap(), content);
     }
 
@@ -201,7 +216,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         fs::File::create(&file_path).unwrap();
-        
+
         let atom = SetFilePermissions::new(file_path.to_string_lossy().to_string(), 0o755);
         assert!(atom.check().unwrap());
     }
@@ -211,10 +226,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         fs::File::create(&file_path).unwrap();
-        
+
         let atom = SetFilePermissions::new(file_path.to_string_lossy().to_string(), 0o755);
         atom.execute().unwrap();
-        
+
         let metadata = fs::metadata(&file_path).unwrap();
         let mode = metadata.permissions().mode();
         assert_eq!(mode & 0o777, 0o755);

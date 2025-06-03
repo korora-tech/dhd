@@ -56,7 +56,7 @@ mod tests {
             cwd: None,
             env: None,
         };
-        
+
         assert!(cmd.execute().is_ok());
     }
 
@@ -69,7 +69,7 @@ mod tests {
             cwd: Some(temp_dir.path().to_string_lossy().to_string()),
             env: None,
         };
-        
+
         assert!(cmd.execute().is_ok());
     }
 
@@ -77,14 +77,14 @@ mod tests {
     fn test_run_command_with_env() {
         let mut env = HashMap::new();
         env.insert("TEST_VAR".to_string(), "test_value".to_string());
-        
+
         let cmd = RunCommand {
             command: "sh".to_string(),
             args: Some(vec!["-c".to_string(), "echo $TEST_VAR".to_string()]),
             cwd: None,
             env: Some(env),
         };
-        
+
         assert!(cmd.execute().is_ok());
     }
 
@@ -96,10 +96,15 @@ mod tests {
             cwd: None,
             env: None,
         };
-        
+
         let result = cmd.execute();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Command false failed"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Command false failed")
+        );
     }
 
     #[test]
@@ -110,7 +115,7 @@ mod tests {
             cwd: None,
             env: None,
         };
-        
+
         assert!(cmd.execute().is_err());
     }
 }
