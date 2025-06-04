@@ -117,6 +117,7 @@ pub struct ExecuteCommand {
     pub args: Vec<String>,
     pub cwd: Option<String>,
     pub env: Option<std::collections::HashMap<String, String>>,
+    pub shell: Option<String>,
 }
 
 impl ExecuteCommand {
@@ -125,12 +126,14 @@ impl ExecuteCommand {
         args: Vec<String>,
         cwd: Option<String>,
         env: Option<std::collections::HashMap<String, String>>,
+        shell: Option<String>,
     ) -> Self {
         Self {
             command,
             args,
             cwd,
             env,
+            shell,
         }
     }
 }
@@ -145,12 +148,25 @@ impl Action for ExecuteCommand {
             args: Some(self.args.clone()),
             cwd: self.cwd.clone(),
             env: self.env.clone(),
+            shell: self.shell.clone(),
         };
 
         Ok(vec![Box::new(atom)])
     }
 
     fn describe(&self) -> String {
-        format!("Execute: {} {}", self.command, self.args.join(" "))
+        // Quote arguments that contain spaces or special characters
+        let quoted_args: Vec<String> = self
+            .args
+            .iter()
+            .map(|arg| {
+                if arg.contains(' ') || arg.contains('"') || arg.contains('\'') {
+                    format!("\"{}\"", arg.replace('"', "\\\""))
+                } else {
+                    arg.to_string()
+                }
+            })
+            .collect();
+        format!("Execute: {} {}", self.command, quoted_args.join(" "))
     }
 }

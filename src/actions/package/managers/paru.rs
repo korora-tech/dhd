@@ -69,6 +69,7 @@ impl PackageManager for Paru {
             ]),
             cwd: None,
             env: None,
+            shell: None,
         }));
 
         atoms.push(Box::new(RunCommand {
@@ -76,6 +77,7 @@ impl PackageManager for Paru {
             args: Some(vec!["-si".to_string(), "--noconfirm".to_string()]),
             cwd: Some("/tmp/paru".to_string()),
             env: None,
+            shell: None,
         }));
 
         atoms.push(Box::new(RunCommand {
@@ -83,6 +85,7 @@ impl PackageManager for Paru {
             args: Some(vec!["-rf".to_string(), "/tmp/paru".to_string()]),
             cwd: None,
             env: None,
+            shell: None,
         }));
 
         Ok(atoms)
@@ -97,6 +100,7 @@ impl PackageManager for Paru {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

@@ -58,6 +58,7 @@ impl PackageManager for Pacman {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

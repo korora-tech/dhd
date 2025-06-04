@@ -9,6 +9,7 @@ pub struct RunCommand {
     pub args: Option<Vec<String>>,
     pub cwd: Option<String>,
     pub env: Option<HashMap<String, String>>,
+    pub shell: Option<String>,
 }
 
 impl Atom for RunCommand {
@@ -24,7 +25,18 @@ impl Atom for RunCommand {
     fn describe(&self) -> String {
         let mut desc = format!("Running command: {}", self.command);
         if let Some(args) = &self.args {
-            desc.push_str(&format!(" {}", args.join(" ")));
+            // Quote arguments that contain spaces or special characters
+            let quoted_args: Vec<String> = args
+                .iter()
+                .map(|arg| {
+                    if arg.contains(' ') || arg.contains('"') || arg.contains('\'') {
+                        format!("\"{}\"", arg.replace('"', "\\\""))
+                    } else {
+                        arg.to_string()
+                    }
+                })
+                .collect();
+            desc.push_str(&format!(" {}", quoted_args.join(" ")));
         }
         desc
     }
@@ -32,11 +44,39 @@ impl Atom for RunCommand {
 
 impl RunCommand {
     pub fn run(&self) -> Result<()> {
-        let mut cmd = Command::new(&self.command);
+        let mut cmd = if let Some(shell) = &self.shell {
+            // If shell is specified, wrap the command
+            let mut shell_cmd = Command::new(shell);
 
-        if let Some(args) = &self.args {
-            cmd.args(args);
-        }
+            // Build the full command string
+            let mut full_command = self.command.clone();
+            if let Some(args) = &self.args {
+                for arg in args {
+                    full_command.push(' ');
+                    // Properly escape arguments for shell
+                    if arg.contains(' ')
+                        || arg.contains('"')
+                        || arg.contains('\'')
+                        || arg.contains('$')
+                    {
+                        full_command.push_str(&format!("'{}'", arg.replace('\'', "'\\''")));
+                    } else {
+                        full_command.push_str(arg);
+                    }
+                }
+            }
+
+            // Use -c flag for most shells
+            shell_cmd.args(&["-c", &full_command]);
+            shell_cmd
+        } else {
+            // Original behavior without shell
+            let mut cmd = Command::new(&self.command);
+            if let Some(args) = &self.args {
+                cmd.args(args);
+            }
+            cmd
+        };
 
         if let Some(cwd) = &self.cwd {
             cmd.current_dir(cwd);
@@ -82,6 +122,7 @@ mod tests {
             args: Some(vec!["hello".to_string()]),
             cwd: None,
             env: None,
+            shell: None,
         };
 
         assert!(cmd.run().is_ok());
@@ -95,6 +136,7 @@ mod tests {
             args: None,
             cwd: Some(temp_dir.path().to_string_lossy().to_string()),
             env: None,
+            shell: None,
         };
 
         assert!(cmd.run().is_ok());
@@ -110,6 +152,7 @@ mod tests {
             args: Some(vec!["-c".to_string(), "echo $TEST_VAR".to_string()]),
             cwd: None,
             env: Some(env),
+            shell: None,
         };
 
         assert!(cmd.run().is_ok());
@@ -122,6 +165,7 @@ mod tests {
             args: None,
             cwd: None,
             env: None,
+            shell: None,
         };
 
         let result = cmd.run();
@@ -141,8 +185,59 @@ mod tests {
             args: None,
             cwd: None,
             env: None,
+            shell: None,
         };
 
         assert!(cmd.run().is_err());
+    }
+
+    #[test]
+    fn test_run_command_with_spaces_in_args() {
+        let cmd = RunCommand {
+            command: "echo".to_string(),
+            args: Some(vec![
+                "hello world".to_string(),
+                "test with spaces".to_string(),
+            ]),
+            cwd: None,
+            env: None,
+            shell: None,
+        };
+
+        assert!(cmd.run().is_ok());
+    }
+
+    #[test]
+    fn test_describe_with_special_chars() {
+        let cmd = RunCommand {
+            command: "echo".to_string(),
+            args: Some(vec![
+                "hello world".to_string(),
+                "test\"quote".to_string(),
+                "normal".to_string(),
+            ]),
+            cwd: None,
+            env: None,
+            shell: None,
+        };
+
+        let desc = cmd.describe();
+        assert_eq!(
+            desc,
+            "Running command: echo \"hello world\" \"test\\\"quote\" normal"
+        );
+    }
+
+    #[test]
+    fn test_run_command_with_shell() {
+        let cmd = RunCommand {
+            command: "echo $((2 + 2))".to_string(),
+            args: None,
+            cwd: None,
+            env: None,
+            shell: Some("sh".to_string()),
+        };
+
+        assert!(cmd.run().is_ok());
     }
 }

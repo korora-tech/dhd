@@ -56,6 +56,7 @@ impl PackageManager for Apt {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

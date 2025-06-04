@@ -6,6 +6,7 @@ export interface ExecuteCommandOptions {
   cwd?: string;
   env?: Record<string, string>;
   failOnError?: boolean;
+  shell?: string;
 }
 
 export interface ExecuteCommand extends Action {

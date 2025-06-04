@@ -49,6 +49,7 @@ impl PackageManager for Deno {
             ]),
             cwd: None,
             env: None,
+            shell: None,
         })])
     }
 
@@ -72,6 +73,7 @@ impl PackageManager for Deno {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

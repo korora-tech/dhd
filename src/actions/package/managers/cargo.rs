@@ -52,6 +52,7 @@ impl PackageManager for Cargo {
             ]),
             cwd: None,
             env: None,
+            shell: None,
         })])
     }
 
@@ -64,6 +65,7 @@ impl PackageManager for Cargo {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

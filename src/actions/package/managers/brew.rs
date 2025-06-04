@@ -52,6 +52,7 @@ impl PackageManager for Brew {
                 "NONINTERACTIVE".to_string(),
                 "1".to_string(),
             )])),
+            shell: None,
         })])
     }
 
@@ -64,6 +65,7 @@ impl PackageManager for Brew {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

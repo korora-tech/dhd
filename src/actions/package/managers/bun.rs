@@ -51,6 +51,7 @@ impl PackageManager for Bun {
             ]),
             cwd: None,
             env: None,
+            shell: None,
         })])
     }
 
@@ -63,6 +64,7 @@ impl PackageManager for Bun {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

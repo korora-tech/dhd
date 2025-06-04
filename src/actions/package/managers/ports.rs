@@ -55,6 +55,7 @@ impl PackageManager for Ports {
                 ]),
                 cwd: None,
                 env: None,
+                shell: None,
             }),
             Box::new(RunCommand {
                 command: priv_cmd.clone(),
@@ -66,6 +67,7 @@ impl PackageManager for Ports {
                 ]),
                 cwd: None,
                 env: None,
+                shell: None,
             }),
             Box::new(RunCommand {
                 command: priv_cmd,
@@ -78,6 +80,7 @@ impl PackageManager for Ports {
                 ]),
                 cwd: None,
                 env: None,
+                shell: None,
             }),
         ])
     }
@@ -106,6 +109,7 @@ impl PackageManager for Ports {
                 ]),
                 cwd: None,
                 env: None,
+                shell: None,
             }));
         }
 

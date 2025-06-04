@@ -476,6 +476,17 @@ impl ModuleLoader {
             }
         }
 
+        // Extract shell
+        if let Some(shell_start) = content.find("shell:") {
+            let after_shell = &content[shell_start + 6..];
+            if let Some(quote_start) = after_shell.find('"') {
+                if let Some(quote_end) = after_shell[quote_start + 1..].find('"') {
+                    let shell = &after_shell[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("shell".to_string(), shell.to_string()));
+                }
+            }
+        }
+
         if !params.is_empty() {
             Some(ModuleAction {
                 action_type: "executeCommand".to_string(),

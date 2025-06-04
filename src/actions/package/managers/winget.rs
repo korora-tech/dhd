@@ -64,6 +64,7 @@ impl PackageManager for Winget {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

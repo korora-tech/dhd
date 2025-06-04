@@ -137,12 +137,14 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
                 .map(|s| s.split_whitespace().map(String::from).collect());
             let cwd = get_param_optional(params, "cwd");
             let env = parse_env_params(params);
+            let shell = get_param_optional(params, "shell");
 
             Ok(Box::new(RunCommand {
                 command,
                 args,
                 cwd,
                 env,
+                shell,
             }))
         }
         "systemdService" => {

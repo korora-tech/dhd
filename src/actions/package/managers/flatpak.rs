@@ -59,6 +59,7 @@ impl PackageManager for Flatpak {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

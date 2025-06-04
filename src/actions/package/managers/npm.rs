@@ -51,6 +51,7 @@ impl PackageManager for Npm {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 

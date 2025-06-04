@@ -58,6 +58,7 @@ impl PackageManager for Pkg {
             ]),
             cwd: None,
             env: None,
+            shell: None,
         })])
     }
 
@@ -76,6 +77,7 @@ impl PackageManager for Pkg {
             args: Some(args),
             cwd: None,
             env: None,
+            shell: None,
         }))
     }
 
