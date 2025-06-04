@@ -72,10 +72,7 @@ impl HttpDownload {
 
     fn download_to_temp(&self) -> Result<PathBuf> {
         let temp_dir = std::env::temp_dir();
-        let temp_file = temp_dir.join(format!(
-            "dhd_download_{}.tmp",
-            std::process::id()
-        ));
+        let temp_file = temp_dir.join(format!("dhd_download_{}.tmp", std::process::id()));
 
         // Use curl for downloading (widely available on Unix systems)
         let status = Command::new("curl")
@@ -83,7 +80,8 @@ impl HttpDownload {
                 "-L", // Follow redirects
                 "-f", // Fail on HTTP errors
                 "-s", // Silent mode
-                "-o", temp_file.to_str().unwrap(),
+                "-o",
+                temp_file.to_str().unwrap(),
                 &self.url,
             ])
             .status()?;
@@ -108,11 +106,11 @@ impl HttpDownload {
     }
 
     fn calculate_checksum(&self, path: &Path) -> Result<String> {
-        use sha2::{Sha256, Sha512, Digest};
-        
+        use sha2::{Digest, Sha256, Sha512};
+
         let mut file = fs::File::open(path)?;
         let mut buffer = [0; 8192];
-        
+
         match self.checksum_type {
             ChecksumType::Sha256 => {
                 let mut hasher = Sha256::new();
@@ -157,10 +155,10 @@ impl HttpDownload {
                 let status = Command::new("sudo")
                     .args(&["mkdir", "-p", parent.to_str().unwrap()])
                     .status()?;
-                
+
                 if !status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create parent directory with sudo".to_string()
+                        "Failed to create parent directory with sudo".to_string(),
                     ));
                 }
             }
@@ -168,24 +166,32 @@ impl HttpDownload {
 
         // Move the file
         let status = Command::new("sudo")
-            .args(&["mv", temp_file.to_str().unwrap(), destination.to_str().unwrap()])
+            .args(&[
+                "mv",
+                temp_file.to_str().unwrap(),
+                destination.to_str().unwrap(),
+            ])
             .status()?;
-        
+
         if !status.success() {
             return Err(DhdError::AtomExecution(
-                "Failed to move file with sudo".to_string()
+                "Failed to move file with sudo".to_string(),
             ));
         }
 
         // Set permissions if specified
         if let Some(mode) = self.mode {
             let status = Command::new("sudo")
-                .args(&["chmod", &format!("{:o}", mode), destination.to_str().unwrap()])
+                .args(&[
+                    "chmod",
+                    &format!("{:o}", mode),
+                    destination.to_str().unwrap(),
+                ])
                 .status()?;
-            
+
             if !status.success() {
                 return Err(DhdError::AtomExecution(
-                    "Failed to set file permissions with sudo".to_string()
+                    "Failed to set file permissions with sudo".to_string(),
                 ));
             }
         }
@@ -220,7 +226,7 @@ impl Atom for HttpDownload {
 
         // Download to temporary file
         let temp_file = self.download_to_temp()?;
-        
+
         // Verify checksum if provided
         if !self.verify_checksum(&temp_file)? {
             // Clean up temp file
@@ -266,24 +272,20 @@ impl Atom for HttpDownload {
     }
 
     fn describe(&self) -> String {
-        let mut desc = format!(
-            "Download {} to {}",
-            self.url,
-            self.destination.display()
-        );
-        
+        let mut desc = format!("Download {} to {}", self.url, self.destination.display());
+
         if self.checksum.is_some() {
             desc.push_str(" (with checksum verification)");
         }
-        
+
         if self.privileged {
             desc.push_str(" (privileged)");
         }
-        
+
         if let Some(mode) = self.mode {
             desc.push_str(&format!(" with mode {:o}", mode));
         }
-        
+
         desc
     }
 }

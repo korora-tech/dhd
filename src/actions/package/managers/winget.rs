@@ -1,6 +1,7 @@
-use crate::{Atom, Result};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
+use crate::{Atom, Result};
 use std::process::Command;
 
 /// Windows Package Manager (winget)
@@ -29,8 +30,7 @@ impl PackageManager for Winget {
             .args(&["list", "--id", package])
             .output()
             .map(|output| {
-                output.status.success() && 
-                String::from_utf8_lossy(&output.stdout).contains(package)
+                output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)
             })
             .unwrap_or(false)
     }
@@ -47,13 +47,13 @@ impl PackageManager for Winget {
 
     fn install(&self, packages: Vec<String>) -> Result<Box<dyn Atom>> {
         let mut args = vec!["install".to_string()];
-        
+
         // Add each package with --id flag for exact matching
         for package in packages {
             args.push("--id".to_string());
             args.push(package);
         }
-        
+
         // Accept agreements and source licenses
         args.push("--accept-package-agreements".to_string());
         args.push("--accept-source-agreements".to_string());

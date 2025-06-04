@@ -1,7 +1,7 @@
 import { defineModule, copyFile } from "@korora-tech/dhd";
 
-export default defineModule("example-copy-file")
-	.description("Example module demonstrating copyFile action")
+export default defineModule("copyFile")
+	.description("Example of copyFile")
 	.with(() => [
 		// Basic file copy
 		copyFile({

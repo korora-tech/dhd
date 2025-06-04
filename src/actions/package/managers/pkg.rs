@@ -1,7 +1,8 @@
-use crate::{Atom, Result, DhdError};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
 use crate::utils::detect_privilege_escalation_command;
+use crate::{Atom, DhdError, Result};
 use std::process::Command;
 
 /// pkg package manager for FreeBSD
@@ -40,10 +41,11 @@ impl PackageManager for Pkg {
             return Ok(vec![]);
         }
 
-        let priv_cmd = detect_privilege_escalation_command()
-            .ok_or_else(|| DhdError::AtomExecution(
-                "No privilege escalation command found (sudo, doas, run0)".to_string()
-            ))?;
+        let priv_cmd = detect_privilege_escalation_command().ok_or_else(|| {
+            DhdError::AtomExecution(
+                "No privilege escalation command found (sudo, doas, run0)".to_string(),
+            )
+        })?;
 
         // Bootstrap pkg
         Ok(vec![Box::new(RunCommand {
@@ -60,16 +62,13 @@ impl PackageManager for Pkg {
     }
 
     fn install(&self, packages: Vec<String>) -> Result<Box<dyn Atom>> {
-        let priv_cmd = detect_privilege_escalation_command()
-            .ok_or_else(|| DhdError::AtomExecution(
-                "No privilege escalation command found (sudo, doas, run0)".to_string()
-            ))?;
+        let priv_cmd = detect_privilege_escalation_command().ok_or_else(|| {
+            DhdError::AtomExecution(
+                "No privilege escalation command found (sudo, doas, run0)".to_string(),
+            )
+        })?;
 
-        let mut args = vec![
-            "pkg".to_string(),
-            "install".to_string(),
-            "-y".to_string(),
-        ];
+        let mut args = vec!["pkg".to_string(), "install".to_string(), "-y".to_string()];
         args.extend(packages);
 
         Ok(Box::new(RunCommand {

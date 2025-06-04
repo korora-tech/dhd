@@ -1,6 +1,7 @@
-use crate::{Atom, Result};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
+use crate::{Atom, Result};
 use std::process::Command;
 
 /// Bun package manager and runtime
@@ -31,8 +32,7 @@ impl PackageManager for Bun {
             .args(&["pm", "ls", "-g"])
             .output()
             .map(|output| {
-                output.status.success() && 
-                String::from_utf8_lossy(&output.stdout).contains(package)
+                output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)
             })
             .unwrap_or(false)
     }

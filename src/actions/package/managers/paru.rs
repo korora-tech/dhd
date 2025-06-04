@@ -1,6 +1,7 @@
-use crate::{Atom, Result, DhdError};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
+use crate::{Atom, DhdError, Result};
 use std::process::Command;
 
 use super::arch::Pacman;
@@ -42,7 +43,7 @@ impl PackageManager for Paru {
         // Check if pacman is available
         if !Pacman.is_available() {
             return Err(DhdError::AtomExecution(
-                "Pacman is required to install paru".to_string()
+                "Pacman is required to install paru".to_string(),
             ));
         }
 

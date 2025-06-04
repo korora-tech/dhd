@@ -44,21 +44,21 @@ impl CopyFile {
         if destination.exists() && self.backup {
             let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
             let backup_path = format!("{}.backup.{}", destination.display(), timestamp);
-            
+
             if self.privileged {
                 let status = Command::new("sudo")
                     .args(&["cp", "-a", destination.to_str().unwrap(), &backup_path])
                     .status()?;
-                
+
                 if !status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create backup with sudo".to_string()
+                        "Failed to create backup with sudo".to_string(),
                     ));
                 }
             } else {
                 fs::copy(destination, &backup_path)?;
             }
-            
+
             tracing::info!("Created backup: {}", backup_path);
         }
         Ok(())
@@ -71,22 +71,23 @@ impl CopyFile {
 
         // Compare file sizes first
         let source_meta = fs::metadata(source)?;
-        
+
         if self.privileged {
             // Use stat command for privileged files
             let output = Command::new("stat")
                 .args(&["-c", "%s", destination.to_str().unwrap()])
                 .output()?;
-            
+
             if !output.status.success() {
                 return Ok(false);
             }
-            
+
             let size_str = String::from_utf8_lossy(&output.stdout);
-            let size: u64 = size_str.trim().parse().map_err(|_| {
-                DhdError::AtomExecution("Failed to parse file size".to_string())
-            })?;
-            
+            let size: u64 = size_str
+                .trim()
+                .parse()
+                .map_err(|_| DhdError::AtomExecution("Failed to parse file size".to_string()))?;
+
             if size != source_meta.len() {
                 return Ok(false);
             }
@@ -103,20 +104,19 @@ impl CopyFile {
                 let output = Command::new("stat")
                     .args(&["-c", "%a", destination.to_str().unwrap()])
                     .output()?;
-                
+
                 if !output.status.success() {
                     return Ok(false);
                 }
-                
+
                 let mode_str = String::from_utf8_lossy(&output.stdout);
-                u32::from_str_radix(mode_str.trim(), 8).map_err(|_| {
-                    DhdError::AtomExecution("Failed to parse file mode".to_string())
-                })?
+                u32::from_str_radix(mode_str.trim(), 8)
+                    .map_err(|_| DhdError::AtomExecution("Failed to parse file mode".to_string()))?
             } else {
                 let dest_meta = fs::metadata(destination)?;
                 dest_meta.permissions().mode() & 0o777
             };
-            
+
             if current_mode != expected_mode {
                 return Ok(false);
             }
@@ -128,11 +128,11 @@ impl CopyFile {
             let output = Command::new("sudo")
                 .args(&["sha256sum", destination.to_str().unwrap()])
                 .output()?;
-            
+
             if !output.status.success() {
                 return Ok(false);
             }
-            
+
             String::from_utf8_lossy(&output.stdout)
                 .split_whitespace()
                 .next()
@@ -146,13 +146,13 @@ impl CopyFile {
     }
 
     fn calculate_checksum(&self, path: &Path) -> Result<String> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         use std::io::Read;
-        
+
         let mut file = fs::File::open(path)?;
         let mut hasher = Sha256::new();
         let mut buffer = [0; 8192];
-        
+
         loop {
             let bytes_read = file.read(&mut buffer)?;
             if bytes_read == 0 {
@@ -160,7 +160,7 @@ impl CopyFile {
             }
             hasher.update(&buffer[..bytes_read]);
         }
-        
+
         Ok(format!("{:x}", hasher.finalize()))
     }
 
@@ -171,10 +171,10 @@ impl CopyFile {
                 let status = Command::new("sudo")
                     .args(&["mkdir", "-p", parent.to_str().unwrap()])
                     .status()?;
-                
+
                 if !status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create parent directory with sudo".to_string()
+                        "Failed to create parent directory with sudo".to_string(),
                     ));
                 }
             }
@@ -182,24 +182,33 @@ impl CopyFile {
 
         // Copy the file
         let status = Command::new("sudo")
-            .args(&["cp", "-a", source.to_str().unwrap(), destination.to_str().unwrap()])
+            .args(&[
+                "cp",
+                "-a",
+                source.to_str().unwrap(),
+                destination.to_str().unwrap(),
+            ])
             .status()?;
-        
+
         if !status.success() {
             return Err(DhdError::AtomExecution(
-                "Failed to copy file with sudo".to_string()
+                "Failed to copy file with sudo".to_string(),
             ));
         }
 
         // Set permissions if specified
         if let Some(mode) = self.mode {
             let status = Command::new("sudo")
-                .args(&["chmod", &format!("{:o}", mode), destination.to_str().unwrap()])
+                .args(&[
+                    "chmod",
+                    &format!("{:o}", mode),
+                    destination.to_str().unwrap(),
+                ])
                 .status()?;
-            
+
             if !status.success() {
                 return Err(DhdError::AtomExecution(
-                    "Failed to set file permissions with sudo".to_string()
+                    "Failed to set file permissions with sudo".to_string(),
                 ));
             }
         }
@@ -279,19 +288,19 @@ impl Atom for CopyFile {
             self.source.display(),
             self.destination.display()
         );
-        
+
         if self.privileged {
             desc.push_str(" (privileged)");
         }
-        
+
         if let Some(mode) = self.mode {
             desc.push_str(&format!(" with mode {:o}", mode));
         }
-        
+
         if self.backup {
             desc.push_str(" (with backup)");
         }
-        
+
         desc
     }
 }
@@ -319,7 +328,12 @@ mod tests {
 
         let result = atom.check();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Source file does not exist"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Source file does not exist")
+        );
     }
 
     #[test]
@@ -462,7 +476,11 @@ mod tests {
         let backups: Vec<_> = fs::read_dir(temp_dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| e.file_name().to_string_lossy().contains("dest.conf.backup."))
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .contains("dest.conf.backup.")
+            })
             .collect();
         assert_eq!(backups.len(), 1);
     }

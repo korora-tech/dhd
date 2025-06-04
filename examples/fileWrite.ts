@@ -1,7 +1,7 @@
 import { defineModule, fileWrite } from "@korora-tech/dhd";
 
-export default defineModule("example-file-write")
-	.description("Example module demonstrating fileWrite action")
+export default defineModule("file")
+	.description("Example of fileWrite")
 	.with(() => [
 		// Basic file creation
 		fileWrite({

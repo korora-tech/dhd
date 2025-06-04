@@ -193,6 +193,51 @@ impl ModuleLoader {
                 break;
             }
         }
+
+        // Extract dconfImport actions
+        pos = 0;
+        while let Some(start) = source[pos..].find("dconfImport({") {
+            let abs_start = pos + start + 13;
+            if let Some(end) = self.find_closing_brace(&source[abs_start..]) {
+                let action_content = &source[abs_start..abs_start + end];
+                if let Some(action) = self.parse_dconf_import(action_content) {
+                    actions.push(action);
+                }
+                pos = abs_start + end;
+            } else {
+                break;
+            }
+        }
+
+        // Extract systemdService actions
+        pos = 0;
+        while let Some(start) = source[pos..].find("systemdService({") {
+            let abs_start = pos + start + 16;
+            if let Some(end) = self.find_closing_brace(&source[abs_start..]) {
+                let action_content = &source[abs_start..abs_start + end];
+                if let Some(action) = self.parse_systemd_service(action_content) {
+                    actions.push(action);
+                }
+                pos = abs_start + end;
+            } else {
+                break;
+            }
+        }
+
+        // Extract systemdSocket actions
+        pos = 0;
+        while let Some(start) = source[pos..].find("systemdSocket({") {
+            let abs_start = pos + start + 15;
+            if let Some(end) = self.find_closing_brace(&source[abs_start..]) {
+                let action_content = &source[abs_start..abs_start + end];
+                if let Some(action) = self.parse_systemd_socket(action_content) {
+                    actions.push(action);
+                }
+                pos = abs_start + end;
+            } else {
+                break;
+            }
+        }
     }
 
     fn find_closing_brace(&self, s: &str) -> Option<usize> {
@@ -475,6 +520,144 @@ impl ModuleLoader {
             None
         }
     }
+
+    fn parse_dconf_import(&self, content: &str) -> Option<ModuleAction> {
+        let mut params = Vec::new();
+
+        // Extract source
+        if let Some(source_start) = content.find("source:") {
+            let after_source = &content[source_start + 7..];
+            if let Some(quote_start) = after_source.find('"') {
+                if let Some(quote_end) = after_source[quote_start + 1..].find('"') {
+                    let source = &after_source[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("source".to_string(), source.to_string()));
+                }
+            }
+        }
+
+        // Extract path
+        if let Some(path_start) = content.find("path:") {
+            let after_path = &content[path_start + 5..];
+            if let Some(quote_start) = after_path.find('"') {
+                if let Some(quote_end) = after_path[quote_start + 1..].find('"') {
+                    let path = &after_path[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("path".to_string(), path.to_string()));
+                }
+            }
+        }
+
+        // Check for backup
+        if content.contains("backup: true") {
+            params.push(("backup".to_string(), "true".to_string()));
+        }
+
+        if !params.is_empty() {
+            Some(ModuleAction {
+                action_type: "dconfImport".to_string(),
+                params,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn parse_systemd_service(&self, content: &str) -> Option<ModuleAction> {
+        let mut params = Vec::new();
+
+        // Extract name
+        if let Some(name_start) = content.find("name:") {
+            let after_name = &content[name_start + 5..];
+            if let Some(quote_start) = after_name.find('"') {
+                if let Some(quote_end) = after_name[quote_start + 1..].find('"') {
+                    let name = &after_name[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("name".to_string(), name.to_string()));
+                }
+            }
+        }
+
+        // Extract content (simplified)
+        if content.contains("content:") {
+            params.push(("content".to_string(), "<service content>".to_string()));
+        }
+
+        // Check for user
+        if content.contains("user: true") {
+            params.push(("user".to_string(), "true".to_string()));
+        }
+
+        // Check for enable
+        if content.contains("enable: true") {
+            params.push(("enable".to_string(), "true".to_string()));
+        }
+
+        // Check for start
+        if content.contains("start: true") {
+            params.push(("start".to_string(), "true".to_string()));
+        }
+
+        // Check for reload
+        if content.contains("reload: true") {
+            params.push(("reload".to_string(), "true".to_string()));
+        }
+
+        if !params.is_empty() {
+            Some(ModuleAction {
+                action_type: "systemdService".to_string(),
+                params,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn parse_systemd_socket(&self, content: &str) -> Option<ModuleAction> {
+        let mut params = Vec::new();
+
+        // Extract name
+        if let Some(name_start) = content.find("name:") {
+            let after_name = &content[name_start + 5..];
+            if let Some(quote_start) = after_name.find('"') {
+                if let Some(quote_end) = after_name[quote_start + 1..].find('"') {
+                    let name = &after_name[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("name".to_string(), name.to_string()));
+                }
+            }
+        }
+
+        // Extract content (simplified)
+        if content.contains("content:") {
+            params.push(("content".to_string(), "<socket content>".to_string()));
+        }
+
+        // Check for user
+        if content.contains("user: true") {
+            params.push(("user".to_string(), "true".to_string()));
+        }
+
+        // Check for enable
+        if content.contains("enable: true") {
+            params.push(("enable".to_string(), "true".to_string()));
+        }
+
+        // Check for start
+        if content.contains("start: true") {
+            params.push(("start".to_string(), "true".to_string()));
+        }
+
+        // Check for reload
+        if content.contains("reload: true") {
+            params.push(("reload".to_string(), "true".to_string()));
+        }
+
+        if !params.is_empty() {
+            Some(ModuleAction {
+                action_type: "systemdSocket".to_string(),
+                params,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -496,9 +679,9 @@ pub struct ModuleData {
 pub fn load_modules_from_directory(path: impl AsRef<Path>) -> Result<Vec<ModuleData>> {
     let mut loader = ModuleLoader::new();
     let mut modules = Vec::new();
-    
+
     load_modules_recursive(&mut loader, &mut modules, path.as_ref())?;
-    
+
     Ok(modules)
 }
 
@@ -512,43 +695,50 @@ fn load_modules_recursive(
         return Ok(());
     }
 
-    let entries = std::fs::read_dir(path)
-        .map_err(|e| DhdError::ModuleParse(format!("Failed to read directory {:?}: {}", path, e)))?;
+    let entries = std::fs::read_dir(path).map_err(|e| {
+        DhdError::ModuleParse(format!("Failed to read directory {:?}: {}", path, e))
+    })?;
 
     for entry in entries {
-        let entry = entry
-            .map_err(|e| DhdError::ModuleParse(format!("Failed to read entry: {}", e)))?;
+        let entry =
+            entry.map_err(|e| DhdError::ModuleParse(format!("Failed to read entry: {}", e)))?;
         let entry_path = entry.path();
 
         if entry_path.is_dir() {
             // Skip common directories that shouldn't contain modules
             if let Some(dir_name) = entry_path.file_name().and_then(|n| n.to_str()) {
-                if dir_name.starts_with('.') || 
-                   dir_name == "node_modules" || 
-                   dir_name == "target" ||
-                   dir_name == "dist" ||
-                   dir_name == "build" {
+                if dir_name.starts_with('.')
+                    || dir_name == "node_modules"
+                    || dir_name == "target"
+                    || dir_name == "dist"
+                    || dir_name == "build"
+                {
                     continue;
                 }
             }
-            
+
             // Recursively load from subdirectory
             load_modules_recursive(loader, modules, &entry_path)?;
         } else if entry_path.extension().and_then(|s| s.to_str()) == Some("ts") {
             // Skip test files and type definition files
             if let Some(file_name) = entry_path.file_name().and_then(|n| n.to_str()) {
-                if file_name.ends_with(".test.ts") || 
-                   file_name.ends_with(".spec.ts") ||
-                   file_name.ends_with(".d.ts") {
+                if file_name.ends_with(".test.ts")
+                    || file_name.ends_with(".spec.ts")
+                    || file_name.ends_with(".d.ts")
+                {
                     continue;
                 }
             }
-            
+
             match loader.load_module(&entry_path) {
                 Ok(module_data) => {
-                    tracing::debug!("Successfully loaded module: {} from {:?}", module_data.id, entry_path);
+                    tracing::debug!(
+                        "Successfully loaded module: {} from {:?}",
+                        module_data.id,
+                        entry_path
+                    );
                     modules.push(module_data);
-                },
+                }
                 Err(e) => {
                     tracing::warn!("Failed to load module from {:?}: {}", entry_path, e);
                 }

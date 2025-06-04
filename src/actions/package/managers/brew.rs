@@ -1,6 +1,7 @@
-use crate::{Atom, Result};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
+use crate::{Atom, Result};
 use std::process::Command;
 
 /// Homebrew package manager for macOS and Linux
@@ -43,12 +44,14 @@ impl PackageManager for Brew {
             command: "/bin/bash".to_string(),
             args: Some(vec![
                 "-c".to_string(),
-                "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)".to_string(),
+                "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                    .to_string(),
             ]),
             cwd: None,
-            env: Some(std::collections::HashMap::from([
-                ("NONINTERACTIVE".to_string(), "1".to_string()),
-            ])),
+            env: Some(std::collections::HashMap::from([(
+                "NONINTERACTIVE".to_string(),
+                "1".to_string(),
+            )])),
         })])
     }
 

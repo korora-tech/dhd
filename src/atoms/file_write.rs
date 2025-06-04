@@ -44,21 +44,21 @@ impl FileWrite {
         if destination.exists() && self.backup {
             let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
             let backup_path = format!("{}.backup.{}", destination.display(), timestamp);
-            
+
             if self.privileged {
                 let status = Command::new("sudo")
                     .args(&["cp", "-a", destination.to_str().unwrap(), &backup_path])
                     .status()?;
-                
+
                 if !status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create backup with sudo".to_string()
+                        "Failed to create backup with sudo".to_string(),
                     ));
                 }
             } else {
                 fs::copy(destination, &backup_path)?;
             }
-            
+
             tracing::info!("Created backup: {}", backup_path);
         }
         Ok(())
@@ -73,11 +73,11 @@ impl FileWrite {
             let output = Command::new("sudo")
                 .args(&["cat", destination.to_str().unwrap()])
                 .output()?;
-            
+
             if !output.status.success() {
                 return Ok(true); // Assume different if we can't read
             }
-            
+
             String::from_utf8_lossy(&output.stdout).to_string()
         } else {
             fs::read_to_string(destination)?
@@ -96,20 +96,19 @@ impl FileWrite {
                 let output = Command::new("stat")
                     .args(&["-c", "%a", destination.to_str().unwrap()])
                     .output()?;
-                
+
                 if !output.status.success() {
                     return Ok(true);
                 }
-                
+
                 let mode_str = String::from_utf8_lossy(&output.stdout);
-                u32::from_str_radix(mode_str.trim(), 8).map_err(|_| {
-                    DhdError::AtomExecution("Failed to parse file mode".to_string())
-                })?
+                u32::from_str_radix(mode_str.trim(), 8)
+                    .map_err(|_| DhdError::AtomExecution("Failed to parse file mode".to_string()))?
             } else {
                 let metadata = fs::metadata(destination)?;
                 metadata.permissions().mode() & 0o777
             };
-            
+
             Ok(current_mode != expected_mode)
         } else {
             Ok(false)
@@ -123,44 +122,49 @@ impl FileWrite {
                 let status = Command::new("sudo")
                     .args(&["mkdir", "-p", parent.to_str().unwrap()])
                     .status()?;
-                
+
                 if !status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create parent directory with sudo".to_string()
+                        "Failed to create parent directory with sudo".to_string(),
                     ));
                 }
             }
         }
 
         // Write content to a temp file first
-        let temp_file = std::env::temp_dir().join(format!(
-            "dhd_write_{}.tmp",
-            std::process::id()
-        ));
+        let temp_file = std::env::temp_dir().join(format!("dhd_write_{}.tmp", std::process::id()));
         fs::write(&temp_file, &self.content)?;
 
         // Move the file with sudo
         let status = Command::new("sudo")
-            .args(&["mv", temp_file.to_str().unwrap(), destination.to_str().unwrap()])
+            .args(&[
+                "mv",
+                temp_file.to_str().unwrap(),
+                destination.to_str().unwrap(),
+            ])
             .status()?;
-        
+
         if !status.success() {
             // Clean up temp file if move failed
             let _ = fs::remove_file(&temp_file);
             return Err(DhdError::AtomExecution(
-                "Failed to move file with sudo".to_string()
+                "Failed to move file with sudo".to_string(),
             ));
         }
 
         // Set permissions if specified
         if let Some(mode) = self.mode {
             let status = Command::new("sudo")
-                .args(&["chmod", &format!("{:o}", mode), destination.to_str().unwrap()])
+                .args(&[
+                    "chmod",
+                    &format!("{:o}", mode),
+                    destination.to_str().unwrap(),
+                ])
                 .status()?;
-            
+
             if !status.success() {
                 return Err(DhdError::AtomExecution(
-                    "Failed to set file permissions with sudo".to_string()
+                    "Failed to set file permissions with sudo".to_string(),
                 ));
             }
         }
@@ -172,17 +176,17 @@ impl FileWrite {
 impl Atom for FileWrite {
     fn check(&self) -> Result<bool> {
         let destination = Self::expand_tilde(&self.destination);
-        
+
         // Check if content differs
         if self.content_differs(&destination)? {
             return Ok(true);
         }
-        
+
         // Check if mode differs
         if self.mode_differs(&destination)? {
             return Ok(true);
         }
-        
+
         Ok(false)
     }
 
@@ -226,19 +230,19 @@ impl Atom for FileWrite {
 
     fn describe(&self) -> String {
         let mut desc = format!("Write file {}", self.destination.display());
-        
+
         if self.privileged {
             desc.push_str(" (privileged)");
         }
-        
+
         if let Some(mode) = self.mode {
             desc.push_str(&format!(" with mode {:o}", mode));
         }
-        
+
         if self.backup {
             desc.push_str(" (with backup)");
         }
-        
+
         desc
     }
 }
@@ -268,7 +272,7 @@ mod tests {
     fn test_file_write_check_when_content_same() {
         let temp_dir = TempDir::new().unwrap();
         let destination = temp_dir.path().join("existing.txt");
-        
+
         let content = "same content";
         fs::write(&destination, content).unwrap();
 
@@ -287,7 +291,7 @@ mod tests {
     fn test_file_write_check_when_content_differs() {
         let temp_dir = TempDir::new().unwrap();
         let destination = temp_dir.path().join("existing.txt");
-        
+
         fs::write(&destination, "old content").unwrap();
 
         let atom = FileWrite::new(
@@ -305,9 +309,9 @@ mod tests {
     fn test_file_write_check_when_mode_differs() {
         let temp_dir = TempDir::new().unwrap();
         let destination = temp_dir.path().join("existing.txt");
-        
+
         fs::write(&destination, "content").unwrap();
-        
+
         // Set initial permissions
         let metadata = fs::metadata(&destination).unwrap();
         let mut permissions = metadata.permissions();
@@ -329,7 +333,7 @@ mod tests {
     fn test_file_write_execute_basic() {
         let temp_dir = TempDir::new().unwrap();
         let destination = temp_dir.path().join("new_file.txt");
-        
+
         let content = "test content\nwith multiple lines";
         let atom = FileWrite::new(
             destination.to_string_lossy().to_string(),
@@ -349,7 +353,7 @@ mod tests {
     fn test_file_write_execute_creates_parent_dirs() {
         let temp_dir = TempDir::new().unwrap();
         let destination = temp_dir.path().join("nested/dir/file.txt");
-        
+
         let atom = FileWrite::new(
             destination.to_string_lossy().to_string(),
             "content".to_string(),
@@ -368,7 +372,7 @@ mod tests {
     fn test_file_write_execute_with_mode() {
         let temp_dir = TempDir::new().unwrap();
         let destination = temp_dir.path().join("script.sh");
-        
+
         let atom = FileWrite::new(
             destination.to_string_lossy().to_string(),
             "#!/bin/bash\necho 'Hello'".to_string(),
@@ -388,7 +392,7 @@ mod tests {
     fn test_file_write_execute_with_backup() {
         let temp_dir = TempDir::new().unwrap();
         let destination = temp_dir.path().join("config.txt");
-        
+
         // Create existing file
         fs::write(&destination, "old content").unwrap();
 
@@ -409,7 +413,11 @@ mod tests {
         let backups: Vec<_> = fs::read_dir(temp_dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| e.file_name().to_string_lossy().contains("config.txt.backup."))
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .contains("config.txt.backup.")
+            })
             .collect();
         assert_eq!(backups.len(), 1);
     }
@@ -440,9 +448,6 @@ mod tests {
             false,
         );
 
-        assert_eq!(
-            atom.describe(),
-            "Write file ~/notes.txt"
-        );
+        assert_eq!(atom.describe(), "Write file ~/notes.txt");
     }
 }

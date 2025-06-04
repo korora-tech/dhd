@@ -1,3 +1,4 @@
+use crate::{Atom, DhdError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Command;
@@ -10,8 +11,27 @@ pub struct RunCommand {
     pub env: Option<HashMap<String, String>>,
 }
 
+impl Atom for RunCommand {
+    fn check(&self) -> Result<bool> {
+        // Commands are typically not idempotent - always need to run
+        Ok(false)
+    }
+
+    fn execute(&self) -> Result<()> {
+        self.run()
+    }
+
+    fn describe(&self) -> String {
+        let mut desc = format!("Running command: {}", self.command);
+        if let Some(args) = &self.args {
+            desc.push_str(&format!(" {}", args.join(" ")));
+        }
+        desc
+    }
+}
+
 impl RunCommand {
-    pub fn execute(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run(&self) -> Result<()> {
         let mut cmd = Command::new(&self.command);
 
         if let Some(args) = &self.args {
@@ -31,11 +51,13 @@ impl RunCommand {
         let output = cmd.output()?;
 
         if !output.status.success() {
-            return Err(format!(
-                "Command {} failed with exit code: {:?}",
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(DhdError::AtomExecution(format!(
+                "Command {} failed with exit code: {:?}. Error: {}",
                 self.command,
-                output.status.code()
-            )
+                output.status.code(),
+                stderr
+            ))
             .into());
         }
 
@@ -57,7 +79,7 @@ mod tests {
             env: None,
         };
 
-        assert!(cmd.execute().is_ok());
+        assert!(cmd.run().is_ok());
     }
 
     #[test]
@@ -70,7 +92,7 @@ mod tests {
             env: None,
         };
 
-        assert!(cmd.execute().is_ok());
+        assert!(cmd.run().is_ok());
     }
 
     #[test]
@@ -85,7 +107,7 @@ mod tests {
             env: Some(env),
         };
 
-        assert!(cmd.execute().is_ok());
+        assert!(cmd.run().is_ok());
     }
 
     #[test]
@@ -97,7 +119,7 @@ mod tests {
             env: None,
         };
 
-        let result = cmd.execute();
+        let result = cmd.run();
         assert!(result.is_err());
         assert!(
             result
@@ -116,6 +138,6 @@ mod tests {
             env: None,
         };
 
-        assert!(cmd.execute().is_err());
+        assert!(cmd.run().is_err());
     }
 }

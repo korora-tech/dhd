@@ -1,7 +1,7 @@
 import { defineModule, httpDownload } from "@korora-tech/dhd";
 
-export default defineModule("example-http-download")
-	.description("Example module demonstrating httpDownload action")
+export default defineModule("httpDownload")
+	.description("Example of httpDownload")
 	.with(() => [
 		// Basic file download
 		httpDownload({

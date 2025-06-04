@@ -1,6 +1,7 @@
-use crate::{Atom, Result};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
+use crate::{Atom, Result};
 use std::process::Command;
 
 /// Cargo package manager for Rust
@@ -31,8 +32,7 @@ impl PackageManager for Cargo {
             .args(&["install", "--list"])
             .output()
             .map(|output| {
-                output.status.success() && 
-                String::from_utf8_lossy(&output.stdout).contains(package)
+                output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)
             })
             .unwrap_or(false)
     }
@@ -47,7 +47,8 @@ impl PackageManager for Cargo {
             command: "/bin/bash".to_string(),
             args: Some(vec![
                 "-c".to_string(),
-                "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y".to_string(),
+                "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+                    .to_string(),
             ]),
             cwd: None,
             env: None,

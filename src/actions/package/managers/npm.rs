@@ -1,6 +1,7 @@
-use crate::{Atom, Result};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
+use crate::{Atom, Result};
 use std::process::Command;
 
 /// NPM package manager for Node.js
@@ -31,8 +32,7 @@ impl PackageManager for Npm {
             .args(&["list", "-g", "--depth=0", package])
             .output()
             .map(|output| {
-                output.status.success() && 
-                String::from_utf8_lossy(&output.stdout).contains(package)
+                output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)
             })
             .unwrap_or(false)
     }

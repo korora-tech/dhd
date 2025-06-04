@@ -1,4 +1,5 @@
 pub mod copy_file;
+pub mod dconf_import;
 pub mod file;
 pub mod file_write;
 pub mod http_download;
@@ -6,8 +7,11 @@ pub mod link_dotfile;
 pub mod package_install;
 pub mod run_command;
 pub mod symlink;
+pub mod systemd_service;
+pub mod systemd_socket;
 
 pub use copy_file::*;
+pub use dconf_import::*;
 pub use file::*;
 pub use file_write::*;
 pub use http_download::*;
@@ -15,3 +19,5 @@ pub use link_dotfile::*;
 pub use package_install::*;
 pub use run_command::*;
 pub use symlink::*;
+pub use systemd_service::*;
+pub use systemd_socket::*;

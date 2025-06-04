@@ -1,6 +1,7 @@
-use crate::{Atom, Result};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
+use crate::{Atom, Result};
 use std::process::Command;
 
 /// Deno runtime and package manager
@@ -55,7 +56,7 @@ impl PackageManager for Deno {
         // Deno installs are actually script installations
         // The package should be a URL or a module name from deno.land/x
         let mut args = vec!["install".to_string(), "--allow-all".to_string()];
-        
+
         for package in packages {
             // If it looks like a URL, use it directly
             if package.starts_with("http://") || package.starts_with("https://") {

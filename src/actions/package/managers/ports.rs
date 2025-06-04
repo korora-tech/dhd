@@ -1,7 +1,8 @@
-use crate::{Atom, Result, DhdError};
-use crate::actions::package::{PackageManager, PlatformInfo};
+use crate::actions::package::PackageManager;
 use crate::atoms::RunCommand;
+use crate::platform::PlatformInfo;
 use crate::utils::detect_privilege_escalation_command;
+use crate::{Atom, DhdError, Result};
 use std::process::Command;
 
 /// BSD Ports system
@@ -37,10 +38,11 @@ impl PackageManager for Ports {
             return Ok(vec![]);
         }
 
-        let priv_cmd = detect_privilege_escalation_command()
-            .ok_or_else(|| DhdError::AtomExecution(
-                "No privilege escalation command found (sudo, doas, run0)".to_string()
-            ))?;
+        let priv_cmd = detect_privilege_escalation_command().ok_or_else(|| {
+            DhdError::AtomExecution(
+                "No privilege escalation command found (sudo, doas, run0)".to_string(),
+            )
+        })?;
 
         // Download and extract ports tree
         Ok(vec![
@@ -81,19 +83,20 @@ impl PackageManager for Ports {
     }
 
     fn install(&self, packages: Vec<String>) -> Result<Box<dyn Atom>> {
-        let priv_cmd = detect_privilege_escalation_command()
-            .ok_or_else(|| DhdError::AtomExecution(
-                "No privilege escalation command found (sudo, doas, run0)".to_string()
-            ))?;
+        let priv_cmd = detect_privilege_escalation_command().ok_or_else(|| {
+            DhdError::AtomExecution(
+                "No privilege escalation command found (sudo, doas, run0)".to_string(),
+            )
+        })?;
 
         // For ports, we need to install each package separately
         // This is a simplified version - real ports installation is more complex
         let mut atoms: Vec<Box<dyn Atom>> = vec![];
-        
+
         for package in packages {
             // Find the port directory (simplified - assumes standard location)
             let port_path = format!("/usr/ports/*/{}", package);
-            
+
             atoms.push(Box::new(RunCommand {
                 command: priv_cmd.clone(),
                 args: Some(vec![
@@ -107,7 +110,9 @@ impl PackageManager for Ports {
         }
 
         // Return the first atom if only one package, otherwise we'd need to handle multiple
-        atoms.into_iter().next()
+        atoms
+            .into_iter()
+            .next()
             .ok_or_else(|| DhdError::AtomExecution("No packages to install".to_string()))
     }
 

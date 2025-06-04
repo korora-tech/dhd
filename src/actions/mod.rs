@@ -7,7 +7,7 @@ use std::fmt::Debug;
 pub trait Action: Debug + Send + Sync {
     /// Plan this action into a list of atoms to be executed
     fn plan(&self) -> Result<Vec<Box<dyn Atom>>>;
-    
+
     /// Get a description of what this action will do
     fn describe(&self) -> String;
 }
@@ -35,10 +35,11 @@ impl Action for PackageInstall {
         let manager = if let Some(ref manager_name) = self.manager {
             package::get_package_manager(manager_name)?
         } else {
-            package::detect_system_package_manager()
-                .ok_or_else(|| crate::DhdError::AtomExecution(
-                    "Could not detect system package manager".to_string()
-                ))?
+            package::detect_system_package_manager().ok_or_else(|| {
+                crate::DhdError::AtomExecution(
+                    "Could not detect system package manager".to_string(),
+                )
+            })?
         };
 
         let mut atoms: Vec<Box<dyn Atom>> = vec![];
@@ -53,7 +54,8 @@ impl Action for PackageInstall {
     }
 
     fn describe(&self) -> String {
-        let manager_str = self.manager
+        let manager_str = self
+            .manager
             .as_ref()
             .map(|m| format!(" using {}", m))
             .unwrap_or_else(|| " using system package manager".to_string());
@@ -95,7 +97,7 @@ impl Action for LinkDotfile {
             self.backup,
             self.force,
         );
-        
+
         Ok(vec![Box::new(atom)])
     }
 
@@ -144,15 +146,11 @@ impl Action for ExecuteCommand {
             cwd: self.cwd.clone(),
             env: self.env.clone(),
         };
-        
+
         Ok(vec![Box::new(atom)])
     }
 
     fn describe(&self) -> String {
-        format!(
-            "Execute: {} {}",
-            self.command,
-            self.args.join(" ")
-        )
+        format!("Execute: {} {}", self.command, self.args.join(" "))
     }
 }

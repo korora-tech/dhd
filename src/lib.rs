@@ -30,11 +30,13 @@ pub struct ExecutionPlan {
     pub edges: Vec<(NodeId, NodeId)>,
 }
 
+pub mod actions;
 pub mod atoms;
 pub mod commands;
 pub mod config;
 pub mod dag;
 pub mod gui;
 pub mod modules;
+pub mod platform;
 pub mod tui;
 pub mod utils;

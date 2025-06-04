@@ -39,7 +39,10 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
                 info!("Found requested module: {}", module_id);
                 found_modules.push(module_id.clone());
             } else {
-                error!("Requested module '{}' not found in directory tree", module_id);
+                error!(
+                    "Requested module '{}' not found in directory tree",
+                    module_id
+                );
             }
         }
         found_modules
@@ -176,14 +179,21 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
                                 .iter()
                                 .any(|(k, v)| k == "backup" && v == "true");
                             let mut options = Vec::new();
-                            if privileged { options.push("privileged"); }
-                            if backup { options.push("backup"); }
+                            if privileged {
+                                options.push("privileged");
+                            }
+                            if backup {
+                                options.push("backup");
+                            }
                             let options_str = if !options.is_empty() {
                                 format!(" ({})", options.join(", "))
                             } else {
                                 String::new()
                             };
-                            println!("   {} Copy file: {} → {}{}", prefix, source, destination, options_str);
+                            println!(
+                                "   {} Copy file: {} → {}{}",
+                                prefix, source, destination, options_str
+                            );
                         }
                         "httpDownload" => {
                             let url = action
@@ -203,7 +213,10 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
                                 .iter()
                                 .any(|(k, v)| k == "privileged" && v == "true");
                             let suffix = if privileged { " (privileged)" } else { "" };
-                            println!("   {} Download: {} → {}{}", prefix, url, destination, suffix);
+                            println!(
+                                "   {} Download: {} → {}{}",
+                                prefix, url, destination, suffix
+                            );
                         }
                         "fileWrite" => {
                             let destination = action
@@ -221,14 +234,133 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
                                 .iter()
                                 .any(|(k, v)| k == "backup" && v == "true");
                             let mut options = Vec::new();
-                            if privileged { options.push("privileged"); }
-                            if backup { options.push("backup"); }
+                            if privileged {
+                                options.push("privileged");
+                            }
+                            if backup {
+                                options.push("backup");
+                            }
                             let options_str = if !options.is_empty() {
                                 format!(" ({})", options.join(", "))
                             } else {
                                 String::new()
                             };
                             println!("   {} Write file: {}{}", prefix, destination, options_str);
+                        }
+                        "dconfImport" => {
+                            let source = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "source")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let path = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "path")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let backup = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "backup" && v == "true");
+                            let suffix = if backup { " (with backup)" } else { "" };
+                            println!(
+                                "   {} Import dconf: {} → {}{}",
+                                prefix, source, path, suffix
+                            );
+                        }
+                        "systemdService" => {
+                            let name = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "name")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let user = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "user" && v == "true");
+                            let mut options = Vec::new();
+                            if user {
+                                options.push("user");
+                            }
+                            if action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "enable" && v == "true")
+                            {
+                                options.push("enable");
+                            }
+                            if action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "start" && v == "true")
+                            {
+                                options.push("start");
+                            }
+                            if action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "reload" && v == "true")
+                            {
+                                options.push("reload");
+                            }
+                            let options_str = if !options.is_empty() {
+                                format!(" ({})", options.join(", "))
+                            } else {
+                                String::new()
+                            };
+                            println!(
+                                "   {} Create systemd service: {}{}",
+                                prefix, name, options_str
+                            );
+                        }
+                        "systemdSocket" => {
+                            let name = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "name")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let user = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "user" && v == "true");
+                            let mut options = Vec::new();
+                            if user {
+                                options.push("user");
+                            }
+                            if action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "enable" && v == "true")
+                            {
+                                options.push("enable");
+                            }
+                            if action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "start" && v == "true")
+                            {
+                                options.push("start");
+                            }
+                            if action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "reload" && v == "true")
+                            {
+                                options.push("reload");
+                            }
+                            let options_str = if !options.is_empty() {
+                                format!(" ({})", options.join(", "))
+                            } else {
+                                String::new()
+                            };
+                            println!(
+                                "   {} Create systemd socket: {}{}",
+                                prefix, name, options_str
+                            );
                         }
                         _ => {
                             println!("   {} {}: {:?}", prefix, action.action_type, action.params);

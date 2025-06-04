@@ -1,0 +1,68 @@
+  Critical Missing Features
+
+  1. Module System Enhancements
+
+  - tags() - Module categorization (already used in rawkOS)
+  - dependsOn() - Module dependencies (used in niri module)
+  - when()/conditions - Conditional execution based on system state
+
+  2. System Configuration Actions
+
+  - dconfImport() - Import GNOME dconf settings
+  - systemdService() - Create/manage systemd service units
+  - systemdSocket() - Create/manage systemd socket units
+  - gsettings() - Modify GNOME settings via gsettings
+
+  3. Desktop Environment Support
+
+  - gnomeExtension() - Install/manage GNOME shell extensions
+  - desktopEntry() - Create .desktop application entries
+  - xdgConfig() - Manage XDG configuration directories
+
+  4. Package Management Extensions
+
+  - packageRemove() - Uninstall packages
+  - flatpakInstall() - Flatpak application management
+  - repository() - Add/manage package repositories
+
+  5. Shell Integration
+
+  - shellConfig() - Manage shell-specific configurations
+  - shellAlias() - Create shell aliases
+  - shellEnvironment() - Set environment variables persistently
+
+  6. Development Tools
+
+  - gitClone() - Clone repositories
+  - languageVersion() - Manage language versions (rustup, nvm, etc.)
+  - toolchainInstall() - Install development toolchains
+
+  7. Custom Actions
+
+  - customAction() - Allow users to define custom actions for extensibility
+
+  8. Platform Detection
+
+  - conditions object with:
+    - isLinux, isMacOS, isWindows
+    - isGnome, isKDE, isNiri
+    - hasGPU, hasAmdGpu, hasNvidiaGu
+    - hasFingerprint
+    - isLaptop, isDesktop
+
+  9. Template System
+
+  - template() - Template file generation with variables
+  - Environment variable expansion in file content
+
+  10. Advanced Features
+
+  - backup() - Backup files before modification (extend beyond LinkDotfile)
+  - verify() - Verify action success/state
+  - rollback() - Undo/rollback mechanism
+
+  The most critical ones to implement next would be:
+  1. Module system enhancements (tags, dependsOn, when)
+  2. System configuration actions (dconf, systemd)
+  3. Package management extensions
+  4. Custom actions for extensibility

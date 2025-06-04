@@ -44,7 +44,7 @@ impl ModuleRegistry {
     pub fn load_modules_from_directory(&mut self, path: &Path) -> Result<usize, DhdError> {
         let modules = load_modules_from_directory(path)?;
         let count = modules.len();
-        
+
         for module_data in modules {
             let id = module_data.id.clone();
             if self.modules.contains_key(&id) {
@@ -53,7 +53,7 @@ impl ModuleRegistry {
                 self.modules.insert(id, module_data);
             }
         }
-        
+
         Ok(count)
     }
 
