@@ -30,7 +30,7 @@ jobs:
       - name: Publish to JSR
         run: |
           cd types
-          bunx jsr publish
+          bunx jsr publish --allow-dirty
 
   release:
     name: Release Build and Publish
