@@ -23,7 +23,7 @@ jobs:
 
       - name: Update version in deno.json
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${GITHUB_REF#refs/tags/}
           cd types
           sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" deno.json
 
