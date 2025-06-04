@@ -1,4 +1,4 @@
-import { AnyAction } from "./actions";
+import type { AnyAction } from "./actions";
 
 export type LinuxFamily = "debian" | "redhat" | "suse";
 export type LinuxDistro = "ubuntu" | "debian" | "fedora" | "rhel" | "centos" | "arch" | "manjaro" | "opensuse" | "nixos";
@@ -27,7 +27,7 @@ export interface SystemContext {
 	arch: string;
 	home: string;
 	platform: PlatformSelector;
-	
+
 	fileExists(path: string): Promise<boolean>;
 	readFile(path: string): Promise<string>;
 	commandExists(command: string): Promise<boolean>;
