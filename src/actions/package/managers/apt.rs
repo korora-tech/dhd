@@ -28,7 +28,7 @@ impl PackageManager for Apt {
 
     fn is_installed(&self, package: &str) -> bool {
         Command::new("dpkg")
-            .args(&["-l", package])
+            .args(["-l", package])
             .output()
             .map(|output| {
                 output.status.success() && String::from_utf8_lossy(&output.stdout).contains("ii ")

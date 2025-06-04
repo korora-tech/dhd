@@ -145,16 +145,60 @@ fn draw_plan_view(frame: &mut Frame, area: Rect, app: &TuiApp) {
     frame.render_widget(paragraph, area);
 }
 
-fn draw_applying_view(frame: &mut Frame, area: Rect, _app: &TuiApp) {
-    let text = vec![
-        Line::from("Applying configuration..."),
-        Line::from(""),
-        Line::from("This feature is not yet implemented."),
-    ];
+fn draw_applying_view(frame: &mut Frame, area: Rect, app: &TuiApp) {
+    let status = app.apply_status.lock().unwrap();
+
+    let mut text = vec![];
+
+    if status.is_running {
+        text.push(Line::from(Span::styled(
+            "⏳ Applying configuration...",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )));
+        text.push(Line::from(""));
+        text.push(Line::from(format!("Current: {}", status.current_action)));
+
+        if status.total_actions > 0 {
+            text.push(Line::from(format!(
+                "Progress: {}/{} actions",
+                status.completed_actions, status.total_actions
+            )));
+        }
+    } else if let Some(error) = &status.error {
+        text.push(Line::from(Span::styled(
+            "❌ Apply failed!",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )));
+        text.push(Line::from(""));
+        text.push(Line::from(Span::styled(
+            error,
+            Style::default().fg(Color::Red),
+        )));
+        text.push(Line::from(""));
+        text.push(Line::from("Press ESC or q to go back"));
+    } else if status.completed_actions > 0 {
+        text.push(Line::from(Span::styled(
+            "✅ Apply completed successfully!",
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )));
+        text.push(Line::from(""));
+        text.push(Line::from(format!(
+            "Completed {} actions",
+            status.completed_actions
+        )));
+        text.push(Line::from(""));
+        text.push(Line::from("Press ESC or q to go back"));
+    } else {
+        text.push(Line::from(status.current_action.clone()));
+    }
 
     let paragraph = Paragraph::new(text)
         .block(Block::default().title("Applying").borders(Borders::ALL))
-        .style(Style::default().fg(Color::Green));
+        .wrap(Wrap { trim: true });
 
     frame.render_widget(paragraph, area);
 }

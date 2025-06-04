@@ -28,7 +28,7 @@ impl PackageManager for Flatpak {
 
     fn is_installed(&self, package: &str) -> bool {
         Command::new("flatpak")
-            .args(&["list", "--app"])
+            .args(["list", "--app"])
             .output()
             .map(|output| {
                 output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)

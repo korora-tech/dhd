@@ -83,7 +83,7 @@ impl DconfImport {
             timestamp
         );
 
-        let output = Command::new("dconf").args(&["dump", &self.path]).output()?;
+        let output = Command::new("dconf").args(["dump", &self.path]).output()?;
 
         if output.status.success() && !output.stdout.is_empty() {
             fs::write(&backup_file, &output.stdout)?;
@@ -94,7 +94,7 @@ impl DconfImport {
     }
 
     fn get_current_settings(&self) -> Result<String> {
-        let output = Command::new("dconf").args(&["dump", &self.path]).output()?;
+        let output = Command::new("dconf").args(["dump", &self.path]).output()?;
 
         if !output.status.success() {
             return Ok(String::new()); // No existing settings
@@ -155,7 +155,7 @@ impl Atom for DconfImport {
 
         // Import the dconf settings
         let mut child = Command::new("dconf")
-            .args(&["load", &normalized_path])
+            .args(["load", &normalized_path])
             .stdin(std::process::Stdio::piped())
             .spawn()?;
 

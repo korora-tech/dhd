@@ -77,7 +77,7 @@ impl HttpDownload {
 
         // Use curl for downloading (widely available on Unix systems)
         let status = Command::new("curl")
-            .args(&[
+            .args([
                 "-L", // Follow redirects
                 "-f", // Fail on HTTP errors
                 "-s", // Silent mode

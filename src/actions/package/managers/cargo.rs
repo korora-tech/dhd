@@ -29,7 +29,7 @@ impl PackageManager for Cargo {
     fn is_installed(&self, package: &str) -> bool {
         // Check if a cargo binary is installed
         Command::new("cargo")
-            .args(&["install", "--list"])
+            .args(["install", "--list"])
             .output()
             .map(|output| {
                 output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)

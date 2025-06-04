@@ -29,7 +29,7 @@ impl PackageManager for Paru {
 
     fn is_installed(&self, package: &str) -> bool {
         Command::new("paru")
-            .args(&["-Q", package])
+            .args(["-Q", package])
             .output()
             .map(|output| output.status.success())
             .unwrap_or(false)

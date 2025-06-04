@@ -95,7 +95,7 @@ impl FileWrite {
 
             let current_mode = if self.privileged {
                 let output = Command::new("stat")
-                    .args(&["-c", "%a", destination.to_str().unwrap()])
+                    .args(["-c", "%a", destination.to_str().unwrap()])
                     .output()?;
 
                 if !output.status.success() {

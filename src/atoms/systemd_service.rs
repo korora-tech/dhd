@@ -97,7 +97,7 @@ impl SystemdService {
         let service_name = self.ensure_service_name();
         let output = self
             .systemctl_command()
-            .args(&["is-enabled", &service_name])
+            .args(["is-enabled", &service_name])
             .output()?;
 
         Ok(output.status.success())
@@ -107,7 +107,7 @@ impl SystemdService {
         let service_name = self.ensure_service_name();
         let output = self
             .systemctl_command()
-            .args(&["is-active", &service_name])
+            .args(["is-active", &service_name])
             .output()?;
 
         Ok(output.status.success())
@@ -239,7 +239,7 @@ impl Atom for SystemdService {
             if self.user {
                 let status = self
                     .systemctl_command()
-                    .args(&["enable", &service_name])
+                    .args(["enable", &service_name])
                     .status()?;
 
                 if !status.success() {
@@ -268,7 +268,7 @@ impl Atom for SystemdService {
             if self.user {
                 let status = self
                     .systemctl_command()
-                    .args(&["start", &service_name])
+                    .args(["start", &service_name])
                     .status()?;
 
                 if !status.success() {

@@ -9,42 +9,40 @@ struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
 
-    #[arg(long, help = "Launch the TUI interface")]
-    tui: bool,
-
-    #[arg(long, help = "Launch the GUI interface")]
-    gui: bool,
-
     #[command(subcommand)]
-    cmd: Option<Command>,
+    cmd: Command,
 }
 
 #[derive(Parser)]
 enum Command {
-    Plan(PlanArgs),
-    Apply(ApplyArgs),
+    /// Generate a plan for the specified modules
+    Plan {
+        /// Module names to plan (e.g., dhd plan podman neovim)
+        modules: Vec<String>,
+
+        #[arg(short = 'p', long)]
+        modules_path: Option<std::path::PathBuf>,
+    },
+    /// Apply the specified modules
+    Apply {
+        /// Module names to apply (e.g., dhd apply podman neovim)
+        modules: Vec<String>,
+
+        #[arg(long, default_value = "4")]
+        max_concurrent: usize,
+
+        #[arg(short = 'p', long)]
+        modules_path: Option<std::path::PathBuf>,
+    },
+    /// List available modules
+    List {
+        #[arg(short = 'p', long)]
+        modules_path: Option<std::path::PathBuf>,
+    },
+    /// Launch the TUI interface
     Tui,
-}
-
-#[derive(Parser)]
-struct PlanArgs {
-    #[arg(long)]
-    modules: Option<Vec<String>>,
-
-    #[arg(short = 'p', long)]
-    modules_path: Option<std::path::PathBuf>,
-}
-
-#[derive(Parser)]
-struct ApplyArgs {
-    #[arg(long, default_value = "4")]
-    max_concurrent: usize,
-
-    #[arg(long)]
-    modules: Option<Vec<String>>,
-
-    #[arg(short = 'p', long)]
-    modules_path: Option<std::path::PathBuf>,
+    /// Launch the GUI interface  
+    Gui,
 }
 
 fn main() -> Result<()> {
@@ -65,43 +63,53 @@ fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Handle TUI flag
-    if cli.tui {
-        return Ok(commands::tui::execute()?);
-    }
-
-    // Handle GUI flag
-    if cli.gui {
-        // Check if dist directory exists
-        if !std::path::Path::new("dist").exists() {
-            eprintln!(
-                "Error: Frontend not built. Please run 'cargo build --features desktop' first."
-            );
-            std::process::exit(1);
-        }
-
-        // Launch the Tauri app
-        return launch_gui();
-    }
-
     let config = Config::load().unwrap_or_default();
 
     match cli.cmd {
-        Some(Command::Plan(args)) => {
-            let modules_path = args.modules_path.or(config.modules_path.map(Into::into));
-            commands::plan::execute_and_display(args.modules, modules_path)?;
+        Command::Plan {
+            modules,
+            modules_path,
+        } => {
+            let modules_path = modules_path.or(config.modules_path.map(Into::into));
+            let modules_opt = if modules.is_empty() {
+                None
+            } else {
+                Some(modules)
+            };
+            commands::plan::execute_and_display(modules_opt, modules_path)?;
         }
-        Some(Command::Apply(args)) => {
-            let modules_path = args.modules_path.or(config.modules_path.map(Into::into));
-            let max_concurrent = config.max_concurrent.unwrap_or(args.max_concurrent);
-            commands::apply::execute(args.modules, modules_path, max_concurrent)?;
+        Command::Apply {
+            modules,
+            modules_path,
+            max_concurrent,
+        } => {
+            let modules_path = modules_path.or(config.modules_path.map(Into::into));
+            let max_concurrent = config.max_concurrent.unwrap_or(max_concurrent);
+            let modules_opt = if modules.is_empty() {
+                None
+            } else {
+                Some(modules)
+            };
+            commands::apply::execute(modules_opt, modules_path, max_concurrent)?;
         }
-        Some(Command::Tui) => {
+        Command::List { modules_path } => {
+            let modules_path = modules_path.or(config.modules_path.map(Into::into));
+            commands::list::execute(modules_path)?;
+        }
+        Command::Tui => {
             commands::tui::execute()?;
         }
-        None => {
-            eprintln!("No command specified. Use --help for usage information.");
-            std::process::exit(1);
+        Command::Gui => {
+            // Check if dist directory exists
+            if !std::path::Path::new("dist").exists() {
+                eprintln!(
+                    "Error: Frontend not built. Please run 'cargo build --features desktop' first."
+                );
+                std::process::exit(1);
+            }
+
+            // Launch the Tauri app
+            launch_gui()?;
         }
     }
 

@@ -29,7 +29,7 @@ impl PackageManager for Npm {
     fn is_installed(&self, package: &str) -> bool {
         // Check globally installed packages
         Command::new("npm")
-            .args(&["list", "-g", "--depth=0", package])
+            .args(["list", "-g", "--depth=0", package])
             .output()
             .map(|output| {
                 output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)

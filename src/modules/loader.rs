@@ -280,7 +280,7 @@ impl ModuleLoader {
                         if next_ch == '/' {
                             // Single-line comment - skip until newline
                             chars.next(); // consume the second '/'
-                            while let Some(comment_ch) = chars.next() {
+                            for comment_ch in chars.by_ref() {
                                 if comment_ch == '\n' {
                                     result.push('\n');
                                     break;
@@ -290,7 +290,7 @@ impl ModuleLoader {
                             // Multi-line comment - skip until */
                             chars.next(); // consume the '*'
                             let mut prev_ch = ' ';
-                            while let Some(comment_ch) = chars.next() {
+                            for comment_ch in chars.by_ref() {
                                 if prev_ch == '*' && comment_ch == '/' {
                                     break;
                                 }

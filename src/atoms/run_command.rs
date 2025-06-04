@@ -67,7 +67,7 @@ impl RunCommand {
             }
 
             // Use -c flag for most shells
-            shell_cmd.args(&["-c", &full_command]);
+            shell_cmd.args(["-c", &full_command]);
             shell_cmd
         } else {
             // Original behavior without shell

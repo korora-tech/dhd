@@ -1,7 +1,10 @@
 use crate::Result;
+use crate::commands::{apply, plan};
 use crate::modules::loader::{ModuleData, load_modules_from_directory};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AppState {
@@ -19,6 +22,17 @@ pub struct TuiApp {
     pub plan: Option<Vec<String>>,
     pub should_quit: bool,
     pub scroll_offset: usize,
+    pub apply_status: Arc<Mutex<ApplyStatus>>,
+    pub modules_path: std::path::PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApplyStatus {
+    pub is_running: bool,
+    pub current_action: String,
+    pub completed_actions: usize,
+    pub total_actions: usize,
+    pub error: Option<String>,
 }
 
 impl Default for TuiApp {
@@ -29,14 +43,14 @@ impl Default for TuiApp {
 
 impl TuiApp {
     pub fn new() -> Self {
+        let modules_path =
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+
         // Load modules from the current working directory
-        let modules = std::env::current_dir()
-            .ok()
-            .and_then(|cwd| load_modules_from_directory(&cwd).ok())
-            .unwrap_or_else(|| {
-                eprintln!("Failed to load modules from current directory");
-                Vec::new()
-            });
+        let modules = load_modules_from_directory(&modules_path).unwrap_or_else(|_| {
+            eprintln!("Failed to load modules from current directory");
+            Vec::new()
+        });
 
         Self {
             state: AppState::ModuleSelection,
@@ -47,6 +61,14 @@ impl TuiApp {
             plan: None,
             should_quit: false,
             scroll_offset: 0,
+            apply_status: Arc::new(Mutex::new(ApplyStatus {
+                is_running: false,
+                current_action: String::new(),
+                completed_actions: 0,
+                total_actions: 0,
+                error: None,
+            })),
+            modules_path,
         }
     }
 
@@ -54,7 +76,7 @@ impl TuiApp {
         match self.state {
             AppState::ModuleSelection => self.handle_module_selection_key(key),
             AppState::PlanView => self.handle_plan_view_key(key),
-            AppState::Applying => Ok(()), // No interaction during apply
+            AppState::Applying => self.handle_applying_key(key),
         }
     }
 
@@ -128,8 +150,7 @@ impl TuiApp {
                 self.state = AppState::ModuleSelection;
             }
             KeyCode::Enter | KeyCode::Char('a') => {
-                self.state = AppState::Applying;
-                // TODO: Actually apply the modules
+                self.start_apply();
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 if self.scroll_offset > 0 {
@@ -166,12 +187,74 @@ impl TuiApp {
     }
 
     fn generate_plan(&mut self) {
-        let mut plan = vec![];
-        for module_name in &self.selected_modules {
-            plan.push(format!("Install module: {}", module_name));
-            // TODO: Generate actual actions
+        let modules: Vec<String> = self.selected_modules.iter().cloned().collect();
+
+        match plan::execute(Some(modules), Some(self.modules_path.clone())) {
+            Ok(plan_result) => {
+                let mut plan_lines = vec![];
+
+                for module_id in &plan_result.ordered_modules {
+                    if let Some(module) = plan_result.registry.get(module_id) {
+                        plan_lines.push(format!("Module: {}", module_id));
+                        for action in &module.actions {
+                            plan_lines.push(format!("  - {}", action.action_type));
+                        }
+                    }
+                }
+
+                self.plan = Some(plan_lines);
+                self.scroll_offset = 0;
+            }
+            Err(e) => {
+                self.plan = Some(vec![format!("Error generating plan: {}", e)]);
+            }
         }
-        self.plan = Some(plan);
-        self.scroll_offset = 0;
+    }
+
+    fn start_apply(&mut self) {
+        let modules: Vec<String> = self.selected_modules.iter().cloned().collect();
+        let modules_path = self.modules_path.clone();
+        let status = Arc::clone(&self.apply_status);
+
+        // Reset status
+        {
+            let mut s = status.lock().unwrap();
+            s.is_running = true;
+            s.current_action = "Starting apply...".to_string();
+            s.completed_actions = 0;
+            s.total_actions = 0;
+            s.error = None;
+        }
+
+        self.state = AppState::Applying;
+
+        // Run apply in a separate thread
+        thread::spawn(
+            move || match apply::execute(Some(modules), Some(modules_path), 4) {
+                Ok(_) => {
+                    let mut s = status.lock().unwrap();
+                    s.is_running = false;
+                    s.current_action = "Apply completed successfully!".to_string();
+                }
+                Err(e) => {
+                    let mut s = status.lock().unwrap();
+                    s.is_running = false;
+                    s.error = Some(format!("Apply failed: {}", e));
+                }
+            },
+        );
+    }
+
+    fn handle_applying_key(&mut self, key: KeyEvent) -> Result<()> {
+        match key.code {
+            KeyCode::Char('q') | KeyCode::Esc => {
+                let status = self.apply_status.lock().unwrap();
+                if !status.is_running {
+                    self.state = AppState::ModuleSelection;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }

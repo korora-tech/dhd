@@ -29,7 +29,7 @@ impl PackageManager for Bun {
     fn is_installed(&self, package: &str) -> bool {
         // Check globally installed packages
         Command::new("bun")
-            .args(&["pm", "ls", "-g"])
+            .args(["pm", "ls", "-g"])
             .output()
             .map(|output| {
                 output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)

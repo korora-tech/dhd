@@ -77,7 +77,7 @@ impl CopyFile {
         if self.privileged {
             // Use stat command for privileged files
             let output = Command::new("stat")
-                .args(&["-c", "%s", destination.to_str().unwrap()])
+                .args(["-c", "%s", destination.to_str().unwrap()])
                 .output()?;
 
             if !output.status.success() {
@@ -104,7 +104,7 @@ impl CopyFile {
         if let Some(expected_mode) = self.mode {
             let current_mode = if self.privileged {
                 let output = Command::new("stat")
-                    .args(&["-c", "%a", destination.to_str().unwrap()])
+                    .args(["-c", "%a", destination.to_str().unwrap()])
                     .output()?;
 
                 if !output.status.success() {
@@ -306,7 +306,7 @@ impl Atom for CopyFile {
 mod tests {
     use super::*;
     use std::fs::File;
-    
+
     use tempfile::TempDir;
 
     #[test]

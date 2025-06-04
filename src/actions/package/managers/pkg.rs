@@ -29,7 +29,7 @@ impl PackageManager for Pkg {
 
     fn is_installed(&self, package: &str) -> bool {
         Command::new("pkg")
-            .args(&["info", package])
+            .args(["info", package])
             .output()
             .map(|output| output.status.success())
             .unwrap_or(false)

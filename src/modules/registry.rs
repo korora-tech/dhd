@@ -47,10 +47,17 @@ impl ModuleRegistry {
 
         for module_data in modules {
             let id = module_data.id.clone();
-            if self.modules.contains_key(&id) {
-                tracing::warn!("Module '{}' already loaded, skipping duplicate", id);
-            } else {
-                self.modules.insert(id, module_data);
+            use std::collections::hash_map::Entry;
+            match self.modules.entry(id) {
+                Entry::Occupied(entry) => {
+                    tracing::warn!(
+                        "Module '{}' already loaded, skipping duplicate",
+                        entry.key()
+                    );
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(module_data);
+                }
             }
         }
 

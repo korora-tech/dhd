@@ -27,7 +27,7 @@ impl PackageManager for Winget {
 
     fn is_installed(&self, package: &str) -> bool {
         Command::new("winget")
-            .args(&["list", "--id", package])
+            .args(["list", "--id", package])
             .output()
             .map(|output| {
                 output.status.success() && String::from_utf8_lossy(&output.stdout).contains(package)

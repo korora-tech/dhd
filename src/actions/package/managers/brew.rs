@@ -28,7 +28,7 @@ impl PackageManager for Brew {
 
     fn is_installed(&self, package: &str) -> bool {
         Command::new("brew")
-            .args(&["list", "--formula", package])
+            .args(["list", "--formula", package])
             .output()
             .map(|output| output.status.success())
             .unwrap_or(false)

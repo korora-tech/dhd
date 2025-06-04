@@ -97,7 +97,7 @@ impl SystemdSocket {
         let socket_name = self.ensure_socket_name();
         let output = self
             .systemctl_command()
-            .args(&["is-enabled", &socket_name])
+            .args(["is-enabled", &socket_name])
             .output()?;
 
         Ok(output.status.success())
@@ -107,7 +107,7 @@ impl SystemdSocket {
         let socket_name = self.ensure_socket_name();
         let output = self
             .systemctl_command()
-            .args(&["is-active", &socket_name])
+            .args(["is-active", &socket_name])
             .output()?;
 
         Ok(output.status.success())
@@ -239,7 +239,7 @@ impl Atom for SystemdSocket {
             if self.user {
                 let status = self
                     .systemctl_command()
-                    .args(&["enable", &socket_name])
+                    .args(["enable", &socket_name])
                     .status()?;
 
                 if !status.success() {
@@ -268,7 +268,7 @@ impl Atom for SystemdSocket {
             if self.user {
                 let status = self
                     .systemctl_command()
-                    .args(&["start", &socket_name])
+                    .args(["start", &socket_name])
                     .status()?;
 
                 if !status.success() {
