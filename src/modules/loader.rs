@@ -57,6 +57,7 @@ impl ModuleLoader {
 
         let mut module_id = String::new();
         let mut description = None;
+        let mut tags = Vec::new();
         let mut dependencies = Vec::new();
         let mut actions = Vec::new();
 
@@ -73,6 +74,29 @@ impl ModuleLoader {
             let start = start + 14; // length of ".description(\""
             if let Some(end) = source_without_comments[start..].find('"') {
                 description = Some(source_without_comments[start..start + end].to_string());
+            }
+        }
+
+        // Extract tags from .tags("tag1", "tag2")
+        if let Some(start) = source_without_comments.find(".tags(") {
+            let start = start + 6; // length of ".tags("
+            if let Some(end) = source_without_comments[start..].find(')') {
+                let tags_content = &source_without_comments[start..start + end];
+                // Parse multiple quoted strings
+                let mut tag_pos = 0;
+                while let Some(quote_start) = tags_content[tag_pos..].find('"') {
+                    let abs_quote_start = tag_pos + quote_start + 1;
+                    if let Some(quote_end) = tags_content[abs_quote_start..].find('"') {
+                        let tag =
+                            tags_content[abs_quote_start..abs_quote_start + quote_end].to_string();
+                        if !tag.is_empty() {
+                            tags.push(tag);
+                        }
+                        tag_pos = abs_quote_start + quote_end + 1;
+                    } else {
+                        break;
+                    }
+                }
             }
         }
 
@@ -101,6 +125,7 @@ impl ModuleLoader {
             id: module_id.clone(),
             name: module_id,
             description,
+            tags,
             dependencies,
             actions,
         })
@@ -805,6 +830,7 @@ pub struct ModuleData {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
+    pub tags: Vec<String>,
     pub dependencies: Vec<String>,
     pub actions: Vec<ModuleAction>,
 }

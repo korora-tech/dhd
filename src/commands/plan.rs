@@ -7,7 +7,11 @@ pub struct PlanResult {
     pub ordered_modules: Vec<String>, // Module IDs in execution order
 }
 
-pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> Result<PlanResult> {
+pub fn execute(
+    modules: Option<Vec<String>>,
+    modules_path: Option<PathBuf>,
+    tags: Option<Vec<String>>,
+) -> Result<PlanResult> {
     info!("Generating execution plan...");
 
     let modules_dir = if let Some(path) = modules_path {
@@ -32,7 +36,7 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
     }
 
     // Filter to requested modules if specified
-    let loaded_modules = if let Some(ref specific_modules) = modules {
+    let mut loaded_modules = if let Some(ref specific_modules) = modules {
         let mut found_modules = Vec::new();
         for module_id in specific_modules {
             if registry.get(module_id).is_some() {
@@ -50,6 +54,19 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
         // Get all loaded module IDs
         registry.list_modules()
     };
+
+    // Filter by tags if specified
+    if let Some(filter_tags) = &tags {
+        info!("Filtering modules by tags: {:?}", filter_tags);
+        loaded_modules.retain(|module_id| {
+            if let Some(module) = registry.get(module_id) {
+                // Module must have at least one of the specified tags
+                module.tags.iter().any(|tag| filter_tags.contains(tag))
+            } else {
+                false
+            }
+        });
+    }
 
     if loaded_modules.is_empty() {
         println!("No modules found or loaded.");
@@ -389,7 +406,8 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
 pub fn execute_and_display(
     modules: Option<Vec<String>>,
     modules_path: Option<PathBuf>,
+    tags: Option<Vec<String>>,
 ) -> Result<()> {
-    execute(modules, modules_path)?;
+    execute(modules, modules_path, tags)?;
     Ok(())
 }

@@ -189,7 +189,7 @@ impl TuiApp {
     fn generate_plan(&mut self) {
         let modules: Vec<String> = self.selected_modules.iter().cloned().collect();
 
-        match plan::execute(Some(modules), Some(self.modules_path.clone())) {
+        match plan::execute(Some(modules), Some(self.modules_path.clone()), None) {
             Ok(plan_result) => {
                 let mut plan_lines = vec![];
 
@@ -230,7 +230,7 @@ impl TuiApp {
 
         // Run apply in a separate thread
         thread::spawn(
-            move || match apply::execute(Some(modules), Some(modules_path), 4) {
+            move || match apply::execute(Some(modules), Some(modules_path), 4, None) {
                 Ok(_) => {
                     let mut s = status.lock().unwrap();
                     s.is_running = false;

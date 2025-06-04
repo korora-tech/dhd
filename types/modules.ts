@@ -38,6 +38,7 @@ export interface Module {
 	type: "module";
 	name: string;
 	description?: string;
+	tags?: string[];
 	dependencies: string[];
 	setup: (context: SystemContext) => AnyAction[];
 }
@@ -46,6 +47,7 @@ export class ModuleBuilder {
 	private config: {
 		name: string;
 		description?: string;
+		tags?: string[];
 		dependencies: string[];
 		setup?: (context: SystemContext) => AnyAction[];
 	};
@@ -67,12 +69,21 @@ export class ModuleBuilder {
 		return this;
 	}
 
+	tags(...tags: string[]): this {
+		if (!this.config.tags) {
+			this.config.tags = [];
+		}
+		this.config.tags.push(...tags);
+		return this;
+	}
+
 	with(setup: (context: SystemContext) => AnyAction[]): Module {
 		this.config.setup = setup;
 		return {
 			type: "module",
 			name: this.config.name,
 			description: this.config.description,
+			tags: this.config.tags,
 			dependencies: this.config.dependencies,
 			setup: this.config.setup || (() => [])
 		};

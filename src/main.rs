@@ -22,6 +22,10 @@ enum Command {
 
         #[arg(short = 'p', long)]
         modules_path: Option<std::path::PathBuf>,
+
+        /// Filter by tags (e.g., --tags dev,tools)
+        #[arg(short = 't', long, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
     },
     /// Apply the specified modules
     Apply {
@@ -33,11 +37,19 @@ enum Command {
 
         #[arg(short = 'p', long)]
         modules_path: Option<std::path::PathBuf>,
+
+        /// Filter by tags (e.g., --tags dev,tools)
+        #[arg(short = 't', long, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
     },
     /// List available modules
     List {
         #[arg(short = 'p', long)]
         modules_path: Option<std::path::PathBuf>,
+
+        /// Filter by tags (e.g., --tags dev,tools)
+        #[arg(short = 't', long, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
     },
     /// Launch the TUI interface
     Tui,
@@ -69,32 +81,40 @@ fn main() -> Result<()> {
         Command::Plan {
             modules,
             modules_path,
+            tags,
         } => {
             let modules_path = modules_path.or(config.modules_path.map(Into::into));
-            let modules_opt = if modules.is_empty() {
+            let modules_opt = if modules.is_empty() && tags.is_none() {
+                None
+            } else if modules.is_empty() {
+                // If only tags provided, this will be handled in the plan command
                 None
             } else {
                 Some(modules)
             };
-            commands::plan::execute_and_display(modules_opt, modules_path)?;
+            commands::plan::execute_and_display(modules_opt, modules_path, tags)?;
         }
         Command::Apply {
             modules,
             modules_path,
             max_concurrent,
+            tags,
         } => {
             let modules_path = modules_path.or(config.modules_path.map(Into::into));
             let max_concurrent = config.max_concurrent.unwrap_or(max_concurrent);
-            let modules_opt = if modules.is_empty() {
+            let modules_opt = if modules.is_empty() && tags.is_none() {
+                None
+            } else if modules.is_empty() {
+                // If only tags provided, this will be handled in the apply command
                 None
             } else {
                 Some(modules)
             };
-            commands::apply::execute(modules_opt, modules_path, max_concurrent)?;
+            commands::apply::execute(modules_opt, modules_path, max_concurrent, tags)?;
         }
-        Command::List { modules_path } => {
+        Command::List { modules_path, tags } => {
             let modules_path = modules_path.or(config.modules_path.map(Into::into));
-            commands::list::execute(modules_path)?;
+            commands::list::execute(modules_path, tags)?;
         }
         Command::Tui => {
             commands::tui::execute()?;

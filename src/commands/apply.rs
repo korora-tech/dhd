@@ -182,11 +182,12 @@ pub fn execute(
     modules: Option<Vec<String>>,
     modules_path: Option<PathBuf>,
     max_concurrent: usize,
+    tags: Option<Vec<String>>,
 ) -> Result<()> {
     info!("Applying configuration...");
 
     // First run plan to get loaded modules
-    let plan_result = crate::commands::plan::execute(modules, modules_path)?;
+    let plan_result = crate::commands::plan::execute(modules, modules_path, tags)?;
 
     if plan_result.ordered_modules.is_empty() {
         info!("No modules to apply.");
