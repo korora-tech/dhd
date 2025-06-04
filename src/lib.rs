@@ -37,3 +37,4 @@ pub mod dag;
 pub mod gui;
 pub mod modules;
 pub mod tui;
+pub mod utils;
