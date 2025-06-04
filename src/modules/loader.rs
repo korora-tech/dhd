@@ -52,33 +52,36 @@ impl ModuleLoader {
             .ok_or_else(|| DhdError::ModuleParse("No current path set".to_string()))?;
         let source = std::fs::read_to_string(path)?;
 
+        // Remove comments from source to avoid parsing them
+        let source_without_comments = self.remove_comments(&source);
+
         let mut module_id = String::new();
         let mut description = None;
         let mut dependencies = Vec::new();
         let mut actions = Vec::new();
 
         // Extract module ID from defineModule("id")
-        if let Some(start) = source.find("defineModule(\"") {
+        if let Some(start) = source_without_comments.find("defineModule(\"") {
             let start = start + 14; // length of "defineModule(\""
-            if let Some(end) = source[start..].find('"') {
-                module_id = source[start..start + end].to_string();
+            if let Some(end) = source_without_comments[start..].find('"') {
+                module_id = source_without_comments[start..start + end].to_string();
             }
         }
 
         // Extract description from .description("desc")
-        if let Some(start) = source.find(".description(\"") {
+        if let Some(start) = source_without_comments.find(".description(\"") {
             let start = start + 14; // length of ".description(\""
-            if let Some(end) = source[start..].find('"') {
-                description = Some(source[start..start + end].to_string());
+            if let Some(end) = source_without_comments[start..].find('"') {
+                description = Some(source_without_comments[start..start + end].to_string());
             }
         }
 
         // Extract dependencies from .depends("dep")
         let mut search_pos = 0;
-        while let Some(start) = source[search_pos..].find(".depends(\"") {
+        while let Some(start) = source_without_comments[search_pos..].find(".depends(\"") {
             let abs_start = search_pos + start + 10; // length of ".depends(\""
-            if let Some(end) = source[abs_start..].find('"') {
-                dependencies.push(source[abs_start..abs_start + end].to_string());
+            if let Some(end) = source_without_comments[abs_start..].find('"') {
+                dependencies.push(source_without_comments[abs_start..abs_start + end].to_string());
                 search_pos = abs_start + end;
             } else {
                 break;
@@ -86,7 +89,7 @@ impl ModuleLoader {
         }
 
         // Extract actions - look for common action patterns
-        self.extract_actions(&source, &mut actions);
+        self.extract_actions(&source_without_comments, &mut actions);
 
         if module_id.is_empty() {
             return Err(DhdError::ModuleParse(
@@ -240,6 +243,75 @@ impl ModuleLoader {
         }
     }
 
+    fn remove_comments(&self, source: &str) -> String {
+        let mut result = String::new();
+        let mut chars = source.chars().peekable();
+        let mut in_string = false;
+        let mut in_single_string = false;
+        let mut in_template = false;
+        let mut escape = false;
+
+        while let Some(ch) = chars.next() {
+            if escape {
+                result.push(ch);
+                escape = false;
+                continue;
+            }
+
+            match ch {
+                '\\' => {
+                    result.push(ch);
+                    escape = true;
+                }
+                '"' if !in_single_string && !in_template => {
+                    result.push(ch);
+                    in_string = !in_string;
+                }
+                '\'' if !in_string && !in_template => {
+                    result.push(ch);
+                    in_single_string = !in_single_string;
+                }
+                '`' if !in_string && !in_single_string => {
+                    result.push(ch);
+                    in_template = !in_template;
+                }
+                '/' if !in_string && !in_single_string && !in_template => {
+                    if let Some(&next_ch) = chars.peek() {
+                        if next_ch == '/' {
+                            // Single-line comment - skip until newline
+                            chars.next(); // consume the second '/'
+                            while let Some(comment_ch) = chars.next() {
+                                if comment_ch == '\n' {
+                                    result.push('\n');
+                                    break;
+                                }
+                            }
+                        } else if next_ch == '*' {
+                            // Multi-line comment - skip until */
+                            chars.next(); // consume the '*'
+                            let mut prev_ch = ' ';
+                            while let Some(comment_ch) = chars.next() {
+                                if prev_ch == '*' && comment_ch == '/' {
+                                    break;
+                                }
+                                prev_ch = comment_ch;
+                            }
+                        } else {
+                            result.push(ch);
+                        }
+                    } else {
+                        result.push(ch);
+                    }
+                }
+                _ => {
+                    result.push(ch);
+                }
+            }
+        }
+
+        result
+    }
+
     fn find_closing_brace(&self, s: &str) -> Option<usize> {
         let mut depth = 1;
         let mut in_string = false;
@@ -319,7 +391,24 @@ impl ModuleLoader {
             if let Some(quote_start) = after_source.find('"') {
                 if let Some(quote_end) = after_source[quote_start + 1..].find('"') {
                     let source = &after_source[quote_start + 1..quote_start + 1 + quote_end];
-                    params.push(("source".to_string(), source.to_string()));
+
+                    // Resolve source path relative to the TypeScript module file
+                    let resolved_source = if let Some(current_path) = &self.current_path {
+                        if let Some(parent_dir) = current_path.parent() {
+                            // If source is not absolute, resolve it relative to the module's directory
+                            if !source.starts_with('/') && !source.starts_with('~') {
+                                parent_dir.join(source).to_string_lossy().to_string()
+                            } else {
+                                source.to_string()
+                            }
+                        } else {
+                            source.to_string()
+                        }
+                    } else {
+                        source.to_string()
+                    };
+
+                    params.push(("source".to_string(), resolved_source));
                 }
             }
         }
@@ -406,7 +495,24 @@ impl ModuleLoader {
             if let Some(quote_start) = after_source.find('"') {
                 if let Some(quote_end) = after_source[quote_start + 1..].find('"') {
                     let source = &after_source[quote_start + 1..quote_start + 1 + quote_end];
-                    params.push(("source".to_string(), source.to_string()));
+
+                    // Resolve source path relative to the TypeScript module file
+                    let resolved_source = if let Some(current_path) = &self.current_path {
+                        if let Some(parent_dir) = current_path.parent() {
+                            // If source is not absolute, resolve it relative to the module's directory
+                            if !source.starts_with('/') && !source.starts_with('~') {
+                                parent_dir.join(source).to_string_lossy().to_string()
+                            } else {
+                                source.to_string()
+                            }
+                        } else {
+                            source.to_string()
+                        }
+                    } else {
+                        source.to_string()
+                    };
+
+                    params.push(("source".to_string(), resolved_source));
                 }
             }
         }
@@ -530,7 +636,24 @@ impl ModuleLoader {
             if let Some(quote_start) = after_source.find('"') {
                 if let Some(quote_end) = after_source[quote_start + 1..].find('"') {
                     let source = &after_source[quote_start + 1..quote_start + 1 + quote_end];
-                    params.push(("source".to_string(), source.to_string()));
+
+                    // Resolve source path relative to the TypeScript module file
+                    let resolved_source = if let Some(current_path) = &self.current_path {
+                        if let Some(parent_dir) = current_path.parent() {
+                            // If source is not absolute, resolve it relative to the module's directory
+                            if !source.starts_with('/') && !source.starts_with('~') {
+                                parent_dir.join(source).to_string_lossy().to_string()
+                            } else {
+                                source.to_string()
+                            }
+                        } else {
+                            source.to_string()
+                        }
+                    } else {
+                        source.to_string()
+                    };
+
+                    params.push(("source".to_string(), resolved_source));
                 }
             }
         }

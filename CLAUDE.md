@@ -1,1 +1,2 @@
 - Always run cargo fmt and clippy before commiting
+- Use fd over find, rg over grep

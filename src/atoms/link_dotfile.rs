@@ -104,8 +104,8 @@ impl Atom for LinkDotfile {
             Ok(current) => Ok(current != source),
             Err(_) => {
                 // Target exists but is not a symlink
-                // Only execute if force or backup is enabled
-                Ok(self.force || self.backup)
+                // We'll always remove and recreate it
+                Ok(true)
             }
         }
     }
@@ -131,31 +131,53 @@ impl Atom for LinkDotfile {
         }
 
         // Handle existing target
-        if target.exists() {
+        if target.exists() || target.symlink_metadata().is_ok() {
+            tracing::debug!("Target exists at: {}", target.display());
+
             // Check if it's already the correct symlink
             if let Ok(current) = fs::read_link(&target) {
                 if current == source {
                     tracing::info!("Symlink already correct: {}", target.display());
                     return Ok(());
                 }
+                tracing::debug!(
+                    "Existing symlink points to: {}, need to update",
+                    current.display()
+                );
             }
 
             // Create backup if requested
             self.create_backup(&target)?;
 
-            // After backup, target may not exist anymore if it was moved
-            if target.exists() {
-                // Remove existing file/symlink
-                if target.is_dir() && !target.symlink_metadata()?.is_symlink() {
-                    fs::remove_dir_all(&target)?;
-                } else {
-                    fs::remove_file(&target)?;
+            // Remove existing file/symlink/broken symlink
+            // Using symlink_metadata to detect broken symlinks
+            match target.symlink_metadata() {
+                Ok(metadata) => {
+                    if metadata.is_dir() && !metadata.is_symlink() {
+                        tracing::debug!("Removing existing directory: {}", target.display());
+                        fs::remove_dir_all(&target)?;
+                    } else {
+                        tracing::debug!("Removing existing file/symlink: {}", target.display());
+                        fs::remove_file(&target)?;
+                    }
+                }
+                Err(_) => {
+                    tracing::debug!("Target doesn't exist after backup");
+                    // If symlink_metadata fails, the file doesn't exist
+                    // (or we don't have permissions, which will fail at symlink creation anyway)
                 }
             }
         }
 
         // Create the symlink
-        unix_fs::symlink(&source, &target)?;
+        unix_fs::symlink(&source, &target).map_err(|e| {
+            DhdError::AtomExecution(format!(
+                "Failed to create symlink {} -> {}: {}",
+                target.display(),
+                source.display(),
+                e
+            ))
+        })?;
         tracing::info!(
             "Created symlink: {} -> {}",
             target.display(),
