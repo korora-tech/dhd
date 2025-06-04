@@ -1,6 +1,10 @@
+use crate::actions::{
+    Action, ExecuteCommand, LinkDotfile as LinkDotfileAction,
+    PackageInstall as PackageInstallAction,
+};
 use crate::atoms::{
-    CopyFile, DconfImport, FileWrite, HttpDownload, LinkDotfile, PackageInstall, RunCommand,
-    SystemdService, SystemdSocket,
+    CopyFile, DconfImport, FileWrite, HttpDownload, SystemdService,
+    SystemdSocket,
 };
 use crate::modules::loader::ModuleAction;
 use crate::{Atom, DhdError, ExecutionPlan, Result, dag::DagExecutor};
@@ -54,8 +58,8 @@ fn parse_env_params(params: &[(String, String)]) -> Option<HashMap<String, Strin
     }
 }
 
-// Convert a ModuleAction to an Atom
-fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
+// Convert a ModuleAction to one or more Atoms
+fn action_to_atoms(action: &ModuleAction) -> Result<Vec<Box<dyn Atom>>> {
     let params = &action.params;
 
     match action.action_type.as_str() {
@@ -66,20 +70,20 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
             let mode = get_param_u32_octal(params, "mode")?;
             let backup = get_param_bool(params, "backup", false);
 
-            Ok(Box::new(CopyFile::new(
+            Ok(vec![Box::new(CopyFile::new(
                 source,
                 destination,
                 privileged,
                 mode,
                 backup,
-            )))
+            ))])
         }
         "dconfImport" => {
             let source = get_param_required(params, "source")?;
             let path = get_param_required(params, "path")?;
             let backup = get_param_bool(params, "backup", false);
 
-            Ok(Box::new(DconfImport::new(source, path, backup)))
+            Ok(vec![Box::new(DconfImport::new(source, path, backup))])
         }
         "fileWrite" => {
             let destination = get_param_required(params, "destination")?;
@@ -88,13 +92,13 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
             let privileged = get_param_bool(params, "privileged", false);
             let backup = get_param_bool(params, "backup", false);
 
-            Ok(Box::new(FileWrite::new(
+            Ok(vec![Box::new(FileWrite::new(
                 destination,
                 content,
                 mode,
                 privileged,
                 backup,
-            )))
+            ))])
         }
         "httpDownload" => {
             let url = get_param_required(params, "url")?;
@@ -104,12 +108,12 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
             let mode = get_param_u32_octal(params, "mode")?;
             let privileged = get_param_bool(params, "privileged", false);
 
-            Ok(Box::new(
+            Ok(vec![Box::new(
                 HttpDownload::new(url, destination, checksum, checksum_type, mode, privileged)
                     .map_err(|e| {
                         DhdError::AtomExecution(format!("Failed to create HttpDownload: {}", e))
                     })?,
-            ))
+            )])
         }
         "linkDotfile" => {
             let source = get_param_required(params, "source")?;
@@ -117,7 +121,8 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
             let backup = get_param_bool(params, "backup", false);
             let force = get_param_bool(params, "force", false);
 
-            Ok(Box::new(LinkDotfile::new(source, target, backup, force)))
+            let action = LinkDotfileAction::new(source, target, backup, force);
+            action.plan()
         }
         "packageInstall" => {
             let packages_str = get_param_required(params, "packages")?;
@@ -127,25 +132,20 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
                 .collect();
             let manager = get_param_optional(params, "manager");
 
-            Ok(Box::new(PackageInstall::new(packages, manager).map_err(
-                |e| DhdError::AtomExecution(format!("Failed to create PackageInstall: {}", e)),
-            )?))
+            let action = PackageInstallAction::new(packages, manager);
+            action.plan()
         }
         "executeCommand" => {
             let command = get_param_required(params, "command")?;
             let args = get_param_optional(params, "args")
-                .map(|s| s.split_whitespace().map(String::from).collect());
+                .map(|s| s.split_whitespace().map(String::from).collect())
+                .unwrap_or_default();
             let cwd = get_param_optional(params, "cwd");
             let env = parse_env_params(params);
             let shell = get_param_optional(params, "shell");
 
-            Ok(Box::new(RunCommand {
-                command,
-                args,
-                cwd,
-                env,
-                shell,
-            }))
+            let action = ExecuteCommand::new(command, args, cwd, env, shell);
+            action.plan()
         }
         "systemdService" => {
             let name = get_param_required(params, "name")?;
@@ -155,9 +155,9 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
             let start = get_param_bool(params, "start", false);
             let reload = get_param_bool(params, "reload", false);
 
-            Ok(Box::new(SystemdService::new(
+            Ok(vec![Box::new(SystemdService::new(
                 name, content, user, enable, start, reload,
-            )))
+            ))])
         }
         "systemdSocket" => {
             let name = get_param_required(params, "name")?;
@@ -167,9 +167,9 @@ fn action_to_atom(action: &ModuleAction) -> Result<Box<dyn Atom>> {
             let start = get_param_bool(params, "start", false);
             let reload = get_param_bool(params, "reload", false);
 
-            Ok(Box::new(SystemdSocket::new(
+            Ok(vec![Box::new(SystemdSocket::new(
                 name, content, user, enable, start, reload,
-            )))
+            ))])
         }
         _ => Err(DhdError::AtomExecution(format!(
             "Unknown action type: {}",
@@ -211,31 +211,46 @@ pub fn execute(
             );
 
             let mut module_indices = Vec::new();
+            let mut last_action_end_idx = None;
 
-            for (action_idx, action) in module.actions.iter().enumerate() {
-                match action_to_atom(action) {
-                    Ok(atom) => {
-                        info!(
-                            "  Creating atom {} for action: {}",
-                            current_idx, action.action_type
-                        );
-                        nodes.push(atom);
-                        module_indices.push(current_idx);
+            for action in module.actions.iter() {
+                match action_to_atoms(action) {
+                    Ok(action_atoms) => {
+                        let first_atom_idx = current_idx;
+                        let has_atoms = !action_atoms.is_empty();
 
-                        // Add edges to enforce action order within module
-                        if action_idx > 0 {
-                            edges.push((current_idx - 1, current_idx));
+                        for atom in action_atoms {
+                            info!(
+                                "  Creating atom {} for action: {}",
+                                current_idx, action.action_type
+                            );
+                            nodes.push(atom);
+                            module_indices.push(current_idx);
+
+                            // Add edges to enforce atom order within action
+                            if current_idx > first_atom_idx {
+                                edges.push((current_idx - 1, current_idx));
+                            }
+
+                            current_idx += 1;
                         }
 
-                        current_idx += 1;
+                        // Add edges to enforce action order within module
+                        if let Some(prev_end_idx) = last_action_end_idx {
+                            edges.push((prev_end_idx, first_atom_idx));
+                        }
+
+                        if has_atoms {
+                            last_action_end_idx = Some(current_idx - 1);
+                        }
                     }
                     Err(e) => {
                         error!(
-                            "Failed to create atom for action {} in module {}: {}",
+                            "Failed to create atoms for action {} in module {}: {}",
                             action.action_type, module_id, e
                         );
                         return Err(DhdError::AtomExecution(format!(
-                            "Failed to create atom: {}",
+                            "Failed to create atoms: {}",
                             e
                         )));
                     }
