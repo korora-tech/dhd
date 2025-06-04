@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '*.*.*'
 
 jobs:
   publish-jsr:
@@ -26,7 +26,7 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           cd types
           sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" deno.json
-          
+
       - name: Publish to JSR
         run: |
           cd types
@@ -84,7 +84,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'DHD ${{ github.ref_name }}'
+          releaseName: ${{ github.ref_name }}
           releaseBody: 'See the assets to download and install this version.'
           releaseDraft: false
           prerelease: false
