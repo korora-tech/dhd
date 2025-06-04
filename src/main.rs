@@ -31,7 +31,7 @@ struct PlanArgs {
     #[arg(long)]
     modules: Option<Vec<String>>,
 
-    #[arg(long)]
+    #[arg(short = 'p', long)]
     modules_path: Option<std::path::PathBuf>,
 }
 
@@ -43,7 +43,7 @@ struct ApplyArgs {
     #[arg(long)]
     modules: Option<Vec<String>>,
 
-    #[arg(long)]
+    #[arg(short = 'p', long)]
     modules_path: Option<std::path::PathBuf>,
 }
 
@@ -114,10 +114,10 @@ fn launch_gui() -> Result<()> {
 
     tauri::Builder::default()
         .setup(|app| {
-            // Setup app state with examples directory
-            let state = AppState {
-                modules_path: std::path::PathBuf::from("examples"),
-            };
+            // Setup app state with current working directory
+            let modules_path =
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let state = AppState { modules_path };
             app.manage(state);
             Ok(())
         })

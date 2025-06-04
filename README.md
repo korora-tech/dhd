@@ -136,11 +136,11 @@ cargo test
 
 To run the full pipeline (Rust tests, web build, Tauri packaging, examples) via Dagger:
 ```bash
-dagger do <task>
+dagger call <task>
 ```
 Alternatively, configure GitHub Actions/GitLab CI to invoke the Dagger pipeline or the individual steps above.
 
 
 ## License
 
-MIT © DHD Contributors
+MIT © Korora Tech

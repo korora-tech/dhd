@@ -29,11 +29,14 @@ impl Default for TuiApp {
 
 impl TuiApp {
     pub fn new() -> Self {
-        // Load modules from the examples directory
-        let modules = load_modules_from_directory("examples").unwrap_or_else(|e| {
-            eprintln!("Failed to load modules: {}", e);
-            Vec::new()
-        });
+        // Load modules from the current working directory
+        let modules = std::env::current_dir()
+            .ok()
+            .and_then(|cwd| load_modules_from_directory(&cwd).ok())
+            .unwrap_or_else(|| {
+                eprintln!("Failed to load modules from current directory");
+                Vec::new()
+            });
 
         Self {
             state: AppState::ModuleSelection,

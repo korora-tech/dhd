@@ -1,4 +1,4 @@
-use crate::{Result, modules::registry::ModuleRegistry};
+use crate::{Result, modules::registry::ModuleRegistry, utils};
 use std::path::PathBuf;
 use tracing::{error, info};
 
@@ -10,7 +10,12 @@ pub struct PlanResult {
 pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> Result<PlanResult> {
     info!("Generating execution plan...");
 
-    let modules_dir = modules_path.unwrap_or_else(|| PathBuf::from("examples"));
+    let modules_dir = if let Some(path) = modules_path {
+        utils::resolve_modules_directory(&path.to_string_lossy())?
+    } else {
+        // Default to current working directory
+        std::env::current_dir()?
+    };
 
     let mut registry = ModuleRegistry::new();
 
