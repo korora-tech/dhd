@@ -2,10 +2,7 @@ use crate::actions::{
     Action, ExecuteCommand, LinkDotfile as LinkDotfileAction,
     PackageInstall as PackageInstallAction,
 };
-use crate::atoms::{
-    CopyFile, DconfImport, FileWrite, HttpDownload, SystemdService,
-    SystemdSocket,
-};
+use crate::atoms::{CopyFile, DconfImport, FileWrite, HttpDownload, SystemdService, SystemdSocket};
 use crate::modules::loader::ModuleAction;
 use crate::{Atom, DhdError, ExecutionPlan, Result, dag::DagExecutor};
 use std::collections::HashMap;

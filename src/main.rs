@@ -60,20 +60,41 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize logging
-    let log_level = match cli.verbose {
-        0 => tracing::Level::INFO,
-        1 => tracing::Level::DEBUG,
-        _ => tracing::Level::TRACE,
-    };
+    // Initialize logging only for non-TUI modes
+    let is_tui = matches!(cli.cmd, Command::Tui);
 
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("dhd={}", log_level).into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    if !is_tui {
+        let log_level = match cli.verbose {
+            0 => tracing::Level::INFO,
+            1 => tracing::Level::DEBUG,
+            _ => tracing::Level::TRACE,
+        };
+
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| format!("dhd={}", log_level).into()),
+            )
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+    } else {
+        // For TUI mode, configure logging to a file or disable it entirely
+        let log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/dhd-tui.log")
+            .ok();
+
+        if let Some(file) = log_file {
+            tracing_subscriber::registry()
+                .with(
+                    tracing_subscriber::EnvFilter::try_from_default_env()
+                        .unwrap_or_else(|_| "dhd=debug".into()),
+                )
+                .with(tracing_subscriber::fmt::layer().with_writer(std::sync::Arc::new(file)))
+                .init();
+        }
+    }
 
     let config = Config::load().unwrap_or_default();
 

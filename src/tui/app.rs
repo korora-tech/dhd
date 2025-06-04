@@ -48,7 +48,8 @@ impl TuiApp {
 
         // Load modules from the current working directory
         let modules = load_modules_from_directory(&modules_path).unwrap_or_else(|_| {
-            eprintln!("Failed to load modules from current directory");
+            // Log to file if TUI logging is enabled, otherwise just return empty vec
+            tracing::error!("Failed to load modules from current directory");
             Vec::new()
         });
 

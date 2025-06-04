@@ -6,11 +6,8 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
-use tracing::info;
 
 pub fn execute() -> Result<()> {
-    info!("Starting TUI mode");
-
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();

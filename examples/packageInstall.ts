@@ -52,4 +52,14 @@ export default defineModule("packageInstall")
 			names: ["https://deno.land/x/deploy_cli/deployctl.ts"],
 			manager: "deno"
 		}),
+
+		// Flatpak applications
+		packageInstall({
+			names: ["org.zulip.Zulip"],
+			manager: "flatpak"
+		}),
+		packageInstall({
+			names: ["com.slack.Slack", "com.discordapp.Discord"],
+			manager: "flatpak"
+		}),
 	]);
