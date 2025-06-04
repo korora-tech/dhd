@@ -60,6 +60,8 @@ exitcode = "1.1"
 oxc = "0.49"
 os_info = "3"
 petgraph = "0.6"
+sha2 = "0.10"
+md5 = "0.7"
 tauri = { version = "2.5", features = [], optional = true }
 ratatui = { version = "0.29", optional = true }
 crossterm = { version = "0.28", optional = true }

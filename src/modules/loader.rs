@@ -148,6 +148,51 @@ impl ModuleLoader {
                 break;
             }
         }
+
+        // Extract copyFile actions
+        pos = 0;
+        while let Some(start) = source[pos..].find("copyFile({") {
+            let abs_start = pos + start + 10;
+            if let Some(end) = self.find_closing_brace(&source[abs_start..]) {
+                let action_content = &source[abs_start..abs_start + end];
+                if let Some(action) = self.parse_copy_file(action_content) {
+                    actions.push(action);
+                }
+                pos = abs_start + end;
+            } else {
+                break;
+            }
+        }
+
+        // Extract httpDownload actions
+        pos = 0;
+        while let Some(start) = source[pos..].find("httpDownload({") {
+            let abs_start = pos + start + 14;
+            if let Some(end) = self.find_closing_brace(&source[abs_start..]) {
+                let action_content = &source[abs_start..abs_start + end];
+                if let Some(action) = self.parse_http_download(action_content) {
+                    actions.push(action);
+                }
+                pos = abs_start + end;
+            } else {
+                break;
+            }
+        }
+
+        // Extract fileWrite actions
+        pos = 0;
+        while let Some(start) = source[pos..].find("fileWrite({") {
+            let abs_start = pos + start + 11;
+            if let Some(end) = self.find_closing_brace(&source[abs_start..]) {
+                let action_content = &source[abs_start..abs_start + end];
+                if let Some(action) = self.parse_file_write(action_content) {
+                    actions.push(action);
+                }
+                pos = abs_start + end;
+            } else {
+                break;
+            }
+        }
     }
 
     fn find_closing_brace(&self, s: &str) -> Option<usize> {
@@ -306,6 +351,130 @@ impl ModuleLoader {
             None
         }
     }
+
+    fn parse_copy_file(&self, content: &str) -> Option<ModuleAction> {
+        let mut params = Vec::new();
+
+        // Extract source
+        if let Some(source_start) = content.find("source:") {
+            let after_source = &content[source_start + 7..];
+            if let Some(quote_start) = after_source.find('"') {
+                if let Some(quote_end) = after_source[quote_start + 1..].find('"') {
+                    let source = &after_source[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("source".to_string(), source.to_string()));
+                }
+            }
+        }
+
+        // Extract destination
+        if let Some(dest_start) = content.find("destination:") {
+            let after_dest = &content[dest_start + 12..];
+            if let Some(quote_start) = after_dest.find('"') {
+                if let Some(quote_end) = after_dest[quote_start + 1..].find('"') {
+                    let destination = &after_dest[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("destination".to_string(), destination.to_string()));
+                }
+            }
+        }
+
+        // Check for privileged
+        if content.contains("privileged: true") {
+            params.push(("privileged".to_string(), "true".to_string()));
+        }
+
+        // Check for backup
+        if content.contains("backup: true") {
+            params.push(("backup".to_string(), "true".to_string()));
+        }
+
+        if !params.is_empty() {
+            Some(ModuleAction {
+                action_type: "copyFile".to_string(),
+                params,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn parse_http_download(&self, content: &str) -> Option<ModuleAction> {
+        let mut params = Vec::new();
+
+        // Extract url
+        if let Some(url_start) = content.find("url:") {
+            let after_url = &content[url_start + 4..];
+            if let Some(quote_start) = after_url.find('"') {
+                if let Some(quote_end) = after_url[quote_start + 1..].find('"') {
+                    let url = &after_url[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("url".to_string(), url.to_string()));
+                }
+            }
+        }
+
+        // Extract destination
+        if let Some(dest_start) = content.find("destination:") {
+            let after_dest = &content[dest_start + 12..];
+            if let Some(quote_start) = after_dest.find('"') {
+                if let Some(quote_end) = after_dest[quote_start + 1..].find('"') {
+                    let destination = &after_dest[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("destination".to_string(), destination.to_string()));
+                }
+            }
+        }
+
+        // Check for privileged
+        if content.contains("privileged: true") {
+            params.push(("privileged".to_string(), "true".to_string()));
+        }
+
+        if !params.is_empty() {
+            Some(ModuleAction {
+                action_type: "httpDownload".to_string(),
+                params,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn parse_file_write(&self, content: &str) -> Option<ModuleAction> {
+        let mut params = Vec::new();
+
+        // Extract destination
+        if let Some(dest_start) = content.find("destination:") {
+            let after_dest = &content[dest_start + 12..];
+            if let Some(quote_start) = after_dest.find('"') {
+                if let Some(quote_end) = after_dest[quote_start + 1..].find('"') {
+                    let destination = &after_dest[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("destination".to_string(), destination.to_string()));
+                }
+            }
+        }
+
+        // Extract content (simplified - just show that content exists)
+        if content.contains("content:") {
+            params.push(("content".to_string(), "<content>".to_string()));
+        }
+
+        // Check for privileged
+        if content.contains("privileged: true") {
+            params.push(("privileged".to_string(), "true".to_string()));
+        }
+
+        // Check for backup
+        if content.contains("backup: true") {
+            params.push(("backup".to_string(), "true".to_string()));
+        }
+
+        if !params.is_empty() {
+            Some(ModuleAction {
+                action_type: "fileWrite".to_string(),
+                params,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -323,26 +492,69 @@ pub struct ModuleData {
     pub actions: Vec<ModuleAction>,
 }
 
-/// Load all modules from a directory
+/// Load all modules from a directory recursively
 pub fn load_modules_from_directory(path: impl AsRef<Path>) -> Result<Vec<ModuleData>> {
     let mut loader = ModuleLoader::new();
     let mut modules = Vec::new();
+    
+    load_modules_recursive(&mut loader, &mut modules, path.as_ref())?;
+    
+    Ok(modules)
+}
 
-    let entries = std::fs::read_dir(path.as_ref())
-        .map_err(|e| DhdError::ModuleParse(format!("Failed to read modules directory: {}", e)))?;
+/// Recursively load modules from a directory and its subdirectories
+fn load_modules_recursive(
+    loader: &mut ModuleLoader,
+    modules: &mut Vec<ModuleData>,
+    path: &Path,
+) -> Result<()> {
+    if !path.is_dir() {
+        return Ok(());
+    }
+
+    let entries = std::fs::read_dir(path)
+        .map_err(|e| DhdError::ModuleParse(format!("Failed to read directory {:?}: {}", path, e)))?;
 
     for entry in entries {
-        let entry =
-            entry.map_err(|e| DhdError::ModuleParse(format!("Failed to read entry: {}", e)))?;
-        let path = entry.path();
+        let entry = entry
+            .map_err(|e| DhdError::ModuleParse(format!("Failed to read entry: {}", e)))?;
+        let entry_path = entry.path();
 
-        if path.extension().and_then(|s| s.to_str()) == Some("ts") {
-            match loader.load_module(&path) {
-                Ok(module_data) => modules.push(module_data),
-                Err(e) => eprintln!("Failed to load module {:?}: {}", path, e),
+        if entry_path.is_dir() {
+            // Skip common directories that shouldn't contain modules
+            if let Some(dir_name) = entry_path.file_name().and_then(|n| n.to_str()) {
+                if dir_name.starts_with('.') || 
+                   dir_name == "node_modules" || 
+                   dir_name == "target" ||
+                   dir_name == "dist" ||
+                   dir_name == "build" {
+                    continue;
+                }
+            }
+            
+            // Recursively load from subdirectory
+            load_modules_recursive(loader, modules, &entry_path)?;
+        } else if entry_path.extension().and_then(|s| s.to_str()) == Some("ts") {
+            // Skip test files and type definition files
+            if let Some(file_name) = entry_path.file_name().and_then(|n| n.to_str()) {
+                if file_name.ends_with(".test.ts") || 
+                   file_name.ends_with(".spec.ts") ||
+                   file_name.ends_with(".d.ts") {
+                    continue;
+                }
+            }
+            
+            match loader.load_module(&entry_path) {
+                Ok(module_data) => {
+                    tracing::debug!("Successfully loaded module: {} from {:?}", module_data.id, entry_path);
+                    modules.push(module_data);
+                },
+                Err(e) => {
+                    tracing::warn!("Failed to load module from {:?}: {}", entry_path, e);
+                }
             }
         }
     }
 
-    Ok(modules)
+    Ok(())
 }

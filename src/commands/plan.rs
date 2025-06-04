@@ -19,35 +19,34 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
 
     let mut registry = ModuleRegistry::new();
 
-    // Load all module files from the directory
-    let entries = std::fs::read_dir(&modules_dir)?;
-    let mut loaded_modules = Vec::new();
-
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.extension().and_then(|s| s.to_str()) == Some("ts") {
-            match registry.load_module(&path) {
-                Ok(module_data) => {
-                    if let Some(ref specific_modules) = modules {
-                        // Only track if it's in the requested list
-                        if specific_modules.contains(&module_data.id) {
-                            info!("Loading module: {}", module_data.id);
-                            loaded_modules.push(module_data.id.clone());
-                        }
-                    } else {
-                        // Track all loaded modules
-                        info!("Loading module: {}", module_data.id);
-                        loaded_modules.push(module_data.id.clone());
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to load module {:?}: {}", path, e);
-                }
-            }
+    // Load all modules recursively from the directory
+    info!("Scanning for modules in: {:?}", modules_dir);
+    match registry.load_modules_from_directory(&modules_dir) {
+        Ok(loaded_count) => {
+            info!("Found {} modules in directory tree", loaded_count);
+        }
+        Err(e) => {
+            error!("Failed to load modules from directory: {}", e);
+            return Err(e);
         }
     }
+
+    // Filter to requested modules if specified
+    let loaded_modules = if let Some(ref specific_modules) = modules {
+        let mut found_modules = Vec::new();
+        for module_id in specific_modules {
+            if registry.get(module_id).is_some() {
+                info!("Found requested module: {}", module_id);
+                found_modules.push(module_id.clone());
+            } else {
+                error!("Requested module '{}' not found in directory tree", module_id);
+            }
+        }
+        found_modules
+    } else {
+        // Get all loaded module IDs
+        registry.list_modules()
+    };
 
     if loaded_modules.is_empty() {
         println!("No modules found or loaded.");
@@ -154,6 +153,82 @@ pub fn execute(modules: Option<Vec<String>>, modules_path: Option<PathBuf>) -> R
                                 .map(|(_, v)| format!(" {}", v))
                                 .unwrap_or_default();
                             println!("   {} Execute: {}{}", prefix, command, args);
+                        }
+                        "copyFile" => {
+                            let source = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "source")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let destination = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "destination")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let privileged = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "privileged" && v == "true");
+                            let backup = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "backup" && v == "true");
+                            let mut options = Vec::new();
+                            if privileged { options.push("privileged"); }
+                            if backup { options.push("backup"); }
+                            let options_str = if !options.is_empty() {
+                                format!(" ({})", options.join(", "))
+                            } else {
+                                String::new()
+                            };
+                            println!("   {} Copy file: {} → {}{}", prefix, source, destination, options_str);
+                        }
+                        "httpDownload" => {
+                            let url = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "url")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let destination = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "destination")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let privileged = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "privileged" && v == "true");
+                            let suffix = if privileged { " (privileged)" } else { "" };
+                            println!("   {} Download: {} → {}{}", prefix, url, destination, suffix);
+                        }
+                        "fileWrite" => {
+                            let destination = action
+                                .params
+                                .iter()
+                                .find(|(k, _)| k == "destination")
+                                .map(|(_, v)| v.as_str())
+                                .unwrap_or("?");
+                            let privileged = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "privileged" && v == "true");
+                            let backup = action
+                                .params
+                                .iter()
+                                .any(|(k, v)| k == "backup" && v == "true");
+                            let mut options = Vec::new();
+                            if privileged { options.push("privileged"); }
+                            if backup { options.push("backup"); }
+                            let options_str = if !options.is_empty() {
+                                format!(" ({})", options.join(", "))
+                            } else {
+                                String::new()
+                            };
+                            println!("   {} Write file: {}{}", prefix, destination, options_str);
                         }
                         _ => {
                             println!("   {} {}: {:?}", prefix, action.action_type, action.params);

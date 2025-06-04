@@ -1,5 +1,5 @@
 use crate::DhdError;
-use crate::modules::loader::{ModuleData, ModuleLoader};
+use crate::modules::loader::{ModuleData, ModuleLoader, load_modules_from_directory};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -35,6 +35,26 @@ impl ModuleRegistry {
 
     pub fn list(&self) -> Vec<&ModuleData> {
         self.modules.values().collect()
+    }
+
+    pub fn list_modules(&self) -> Vec<String> {
+        self.modules.keys().cloned().collect()
+    }
+
+    pub fn load_modules_from_directory(&mut self, path: &Path) -> Result<usize, DhdError> {
+        let modules = load_modules_from_directory(path)?;
+        let count = modules.len();
+        
+        for module_data in modules {
+            let id = module_data.id.clone();
+            if self.modules.contains_key(&id) {
+                tracing::warn!("Module '{}' already loaded, skipping duplicate", id);
+            } else {
+                self.modules.insert(id, module_data);
+            }
+        }
+        
+        Ok(count)
     }
 
     pub fn get_ordered_modules(&self, module_ids: &[String]) -> Result<Vec<&ModuleData>, DhdError> {
