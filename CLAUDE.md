@@ -47,6 +47,7 @@ Key architectural principles:
 - Never create documentation files unless explicitly requested
 - Follow existing code patterns in neighboring files
 - Use the existing error handling pattern with `DhdError` and `Result<T>`
+- Never tag versions with a v prefix
 
 ## Testing Approach
 
@@ -55,3 +56,12 @@ Key architectural principles:
 - Always add tests for new Atoms and Actions
 - Test both success and failure cases
 - Use `tempfile` crate for filesystem tests
+
+## Release Process
+
+To release a new version:
+1. Update version in `Cargo.toml`, `package.json`, and `types/package.json`
+2. Commit with message: `chore: bump version to X.Y.Z`
+3. Create tag without v prefix: `git tag X.Y.Z`
+4. Push commits and tags: `git push && git push --tags`
+5. CI will automatically publish to crates.io and JSR
