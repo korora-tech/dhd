@@ -809,12 +809,15 @@ pub struct ModuleData {
     pub actions: Vec<ModuleAction>,
 }
 
+/// Maximum depth for recursive module loading
+const MAX_MODULE_DEPTH: usize = 8;
+
 /// Load all modules from a directory recursively
 pub fn load_modules_from_directory(path: impl AsRef<Path>) -> Result<Vec<ModuleData>> {
     let mut loader = ModuleLoader::new();
     let mut modules = Vec::new();
 
-    load_modules_recursive(&mut loader, &mut modules, path.as_ref())?;
+    load_modules_recursive(&mut loader, &mut modules, path.as_ref(), 0)?;
 
     Ok(modules)
 }
@@ -824,8 +827,19 @@ fn load_modules_recursive(
     loader: &mut ModuleLoader,
     modules: &mut Vec<ModuleData>,
     path: &Path,
+    depth: usize,
 ) -> Result<()> {
     if !path.is_dir() {
+        return Ok(());
+    }
+
+    // Check if we've exceeded the maximum depth
+    if depth >= MAX_MODULE_DEPTH {
+        tracing::debug!(
+            "Skipping directory {:?} - exceeded maximum depth of {}",
+            path,
+            MAX_MODULE_DEPTH
+        );
         return Ok(());
     }
 
@@ -852,7 +866,7 @@ fn load_modules_recursive(
             }
 
             // Recursively load from subdirectory
-            load_modules_recursive(loader, modules, &entry_path)?;
+            load_modules_recursive(loader, modules, &entry_path, depth + 1)?;
         } else if entry_path.extension().and_then(|s| s.to_str()) == Some("ts") {
             // Skip test files and type definition files
             if let Some(file_name) = entry_path.file_name().and_then(|n| n.to_str()) {
