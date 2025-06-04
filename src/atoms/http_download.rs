@@ -1,3 +1,4 @@
+use crate::utils::execute_with_privilege_escalation;
 use crate::{Atom, DhdError, Result};
 use std::fs;
 use std::io::Read;
@@ -152,46 +153,39 @@ impl HttpDownload {
         // Create parent directory if needed
         if let Some(parent) = destination.parent() {
             if !parent.exists() {
-                let status = Command::new("sudo")
-                    .args(&["mkdir", "-p", parent.to_str().unwrap()])
-                    .status()?;
+                let output =
+                    execute_with_privilege_escalation("mkdir", &["-p", parent.to_str().unwrap()])?;
 
-                if !status.success() {
+                if !output.status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create parent directory with sudo".to_string(),
+                        "Failed to create parent directory with privilege escalation".to_string(),
                     ));
                 }
             }
         }
 
         // Move the file
-        let status = Command::new("sudo")
-            .args(&[
-                "mv",
-                temp_file.to_str().unwrap(),
-                destination.to_str().unwrap(),
-            ])
-            .status()?;
+        let output = execute_with_privilege_escalation(
+            "mv",
+            &[temp_file.to_str().unwrap(), destination.to_str().unwrap()],
+        )?;
 
-        if !status.success() {
+        if !output.status.success() {
             return Err(DhdError::AtomExecution(
-                "Failed to move file with sudo".to_string(),
+                "Failed to move file with privilege escalation".to_string(),
             ));
         }
 
         // Set permissions if specified
         if let Some(mode) = self.mode {
-            let status = Command::new("sudo")
-                .args(&[
-                    "chmod",
-                    &format!("{:o}", mode),
-                    destination.to_str().unwrap(),
-                ])
-                .status()?;
+            let output = execute_with_privilege_escalation(
+                "chmod",
+                &[&format!("{:o}", mode), destination.to_str().unwrap()],
+            )?;
 
-            if !status.success() {
+            if !output.status.success() {
                 return Err(DhdError::AtomExecution(
-                    "Failed to set file permissions with sudo".to_string(),
+                    "Failed to set file permissions with privilege escalation".to_string(),
                 ));
             }
         }

@@ -14,7 +14,7 @@ pub struct RunCommand {
 impl Atom for RunCommand {
     fn check(&self) -> Result<bool> {
         // Commands are typically not idempotent - always need to run
-        Ok(false)
+        Ok(true)
     }
 
     fn execute(&self) -> Result<()> {
@@ -50,6 +50,12 @@ impl RunCommand {
 
         let output = cmd.output()?;
 
+        // Print stdout if there is any
+        if !output.stdout.is_empty() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            print!("{}", stdout);
+        }
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(DhdError::AtomExecution(format!(
@@ -57,8 +63,7 @@ impl RunCommand {
                 self.command,
                 output.status.code(),
                 stderr
-            ))
-            .into());
+            )));
         }
 
         Ok(())

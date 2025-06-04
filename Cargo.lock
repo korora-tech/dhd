@@ -784,6 +784,7 @@ dependencies = [
  "directories",
  "dirs 5.0.1",
  "exitcode",
+ "libc",
  "md5",
  "os_info",
  "oxc",

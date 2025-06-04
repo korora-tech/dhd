@@ -1,3 +1,4 @@
+use crate::utils::create_privileged_command;
 use crate::{Atom, DhdError, Result};
 use std::process::Command;
 
@@ -119,7 +120,7 @@ impl PackageManager {
         }
     }
 
-    fn needs_sudo(&self) -> bool {
+    fn needs_privilege_escalation(&self) -> bool {
         matches!(
             self,
             Self::Apt | Self::Dnf | Self::Yum | Self::Zypper | Self::Pacman
@@ -233,10 +234,8 @@ impl Atom for PackageInstall {
 
         let manager = self.get_manager()?;
 
-        let mut cmd = if manager.needs_sudo() {
-            let mut cmd = Command::new("sudo");
-            cmd.arg(manager.command());
-            cmd
+        let mut cmd = if manager.needs_privilege_escalation() {
+            create_privileged_command(manager.command())?
         } else {
             Command::new(manager.command())
         };
@@ -334,10 +333,10 @@ mod tests {
     }
 
     #[test]
-    fn test_needs_sudo() {
-        assert!(PackageManager::Apt.needs_sudo());
-        assert!(!PackageManager::Brew.needs_sudo());
-        assert!(!PackageManager::Cargo.needs_sudo());
+    fn test_needs_privilege_escalation() {
+        assert!(PackageManager::Apt.needs_privilege_escalation());
+        assert!(!PackageManager::Brew.needs_privilege_escalation());
+        assert!(!PackageManager::Cargo.needs_privilege_escalation());
     }
 
     #[test]

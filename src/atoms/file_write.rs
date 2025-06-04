@@ -1,3 +1,4 @@
+use crate::utils::execute_with_privilege_escalation;
 use crate::{Atom, DhdError, Result};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -46,13 +47,14 @@ impl FileWrite {
             let backup_path = format!("{}.backup.{}", destination.display(), timestamp);
 
             if self.privileged {
-                let status = Command::new("sudo")
-                    .args(&["cp", "-a", destination.to_str().unwrap(), &backup_path])
-                    .status()?;
+                let output = execute_with_privilege_escalation(
+                    "cp",
+                    &["-a", destination.to_str().unwrap(), &backup_path],
+                )?;
 
-                if !status.success() {
+                if !output.status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create backup with sudo".to_string(),
+                        "Failed to create backup with privilege escalation".to_string(),
                     ));
                 }
             } else {
@@ -70,9 +72,8 @@ impl FileWrite {
         }
 
         let current_content = if self.privileged {
-            let output = Command::new("sudo")
-                .args(&["cat", destination.to_str().unwrap()])
-                .output()?;
+            let output =
+                execute_with_privilege_escalation("cat", &[destination.to_str().unwrap()])?;
 
             if !output.status.success() {
                 return Ok(true); // Assume different if we can't read
@@ -119,13 +120,12 @@ impl FileWrite {
         // Create parent directory if needed
         if let Some(parent) = destination.parent() {
             if !parent.exists() {
-                let status = Command::new("sudo")
-                    .args(&["mkdir", "-p", parent.to_str().unwrap()])
-                    .status()?;
+                let output =
+                    execute_with_privilege_escalation("mkdir", &["-p", parent.to_str().unwrap()])?;
 
-                if !status.success() {
+                if !output.status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create parent directory with sudo".to_string(),
+                        "Failed to create parent directory with privilege escalation".to_string(),
                     ));
                 }
             }
@@ -135,36 +135,30 @@ impl FileWrite {
         let temp_file = std::env::temp_dir().join(format!("dhd_write_{}.tmp", std::process::id()));
         fs::write(&temp_file, &self.content)?;
 
-        // Move the file with sudo
-        let status = Command::new("sudo")
-            .args(&[
-                "mv",
-                temp_file.to_str().unwrap(),
-                destination.to_str().unwrap(),
-            ])
-            .status()?;
+        // Move the file with privilege escalation
+        let output = execute_with_privilege_escalation(
+            "mv",
+            &[temp_file.to_str().unwrap(), destination.to_str().unwrap()],
+        )?;
 
-        if !status.success() {
+        if !output.status.success() {
             // Clean up temp file if move failed
             let _ = fs::remove_file(&temp_file);
             return Err(DhdError::AtomExecution(
-                "Failed to move file with sudo".to_string(),
+                "Failed to move file with privilege escalation".to_string(),
             ));
         }
 
         // Set permissions if specified
         if let Some(mode) = self.mode {
-            let status = Command::new("sudo")
-                .args(&[
-                    "chmod",
-                    &format!("{:o}", mode),
-                    destination.to_str().unwrap(),
-                ])
-                .status()?;
+            let output = execute_with_privilege_escalation(
+                "chmod",
+                &[&format!("{:o}", mode), destination.to_str().unwrap()],
+            )?;
 
-            if !status.success() {
+            if !output.status.success() {
                 return Err(DhdError::AtomExecution(
-                    "Failed to set file permissions with sudo".to_string(),
+                    "Failed to set file permissions with privilege escalation".to_string(),
                 ));
             }
         }

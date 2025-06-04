@@ -35,17 +35,36 @@ impl DagExecutor {
     pub fn execute(&self, max_concurrent: usize) -> Result<()> {
         self.validate()?;
 
+        tracing::info!(
+            "Executing {} atoms with max concurrency of {}",
+            self.plan.nodes.len(),
+            max_concurrent
+        );
+
         rayon::ThreadPoolBuilder::new()
             .num_threads(max_concurrent)
             .build()
             .map_err(|e| DhdError::AtomExecution(e.to_string()))?
             .install(|| {
-                self.plan.nodes.par_iter().try_for_each(|atom| {
-                    if atom.check()? {
-                        atom.execute()?;
-                    }
-                    Ok(())
-                })
+                self.plan
+                    .nodes
+                    .par_iter()
+                    .enumerate()
+                    .try_for_each(|(idx, atom)| {
+                        tracing::info!("Checking atom {}: {}", idx, atom.describe());
+                        if atom.check()? {
+                            tracing::info!("Executing atom {}: {}", idx, atom.describe());
+                            atom.execute()?;
+                            tracing::info!("Completed atom {}: {}", idx, atom.describe());
+                        } else {
+                            tracing::info!(
+                                "Skipping atom {} (check returned false): {}",
+                                idx,
+                                atom.describe()
+                            );
+                        }
+                        Ok(())
+                    })
             })
     }
 }

@@ -1,3 +1,4 @@
+use crate::utils::execute_with_privilege_escalation;
 use crate::{Atom, DhdError, Result};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -46,13 +47,14 @@ impl CopyFile {
             let backup_path = format!("{}.backup.{}", destination.display(), timestamp);
 
             if self.privileged {
-                let status = Command::new("sudo")
-                    .args(&["cp", "-a", destination.to_str().unwrap(), &backup_path])
-                    .status()?;
+                let output = execute_with_privilege_escalation(
+                    "cp",
+                    &["-a", destination.to_str().unwrap(), &backup_path],
+                )?;
 
-                if !status.success() {
+                if !output.status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create backup with sudo".to_string(),
+                        "Failed to create backup with privilege escalation".to_string(),
                     ));
                 }
             } else {
@@ -125,9 +127,8 @@ impl CopyFile {
         // Compare content using checksums
         let source_checksum = self.calculate_checksum(source)?;
         let dest_checksum = if self.privileged {
-            let output = Command::new("sudo")
-                .args(&["sha256sum", destination.to_str().unwrap()])
-                .output()?;
+            let output =
+                execute_with_privilege_escalation("sha256sum", &[destination.to_str().unwrap()])?;
 
             if !output.status.success() {
                 return Ok(false);
@@ -168,47 +169,43 @@ impl CopyFile {
         // Create parent directory if needed
         if let Some(parent) = destination.parent() {
             if !parent.exists() {
-                let status = Command::new("sudo")
-                    .args(&["mkdir", "-p", parent.to_str().unwrap()])
-                    .status()?;
+                let output =
+                    execute_with_privilege_escalation("mkdir", &["-p", parent.to_str().unwrap()])?;
 
-                if !status.success() {
+                if !output.status.success() {
                     return Err(DhdError::AtomExecution(
-                        "Failed to create parent directory with sudo".to_string(),
+                        "Failed to create parent directory with privilege escalation".to_string(),
                     ));
                 }
             }
         }
 
         // Copy the file
-        let status = Command::new("sudo")
-            .args(&[
-                "cp",
+        let output = execute_with_privilege_escalation(
+            "cp",
+            &[
                 "-a",
                 source.to_str().unwrap(),
                 destination.to_str().unwrap(),
-            ])
-            .status()?;
+            ],
+        )?;
 
-        if !status.success() {
+        if !output.status.success() {
             return Err(DhdError::AtomExecution(
-                "Failed to copy file with sudo".to_string(),
+                "Failed to copy file with privilege escalation".to_string(),
             ));
         }
 
         // Set permissions if specified
         if let Some(mode) = self.mode {
-            let status = Command::new("sudo")
-                .args(&[
-                    "chmod",
-                    &format!("{:o}", mode),
-                    destination.to_str().unwrap(),
-                ])
-                .status()?;
+            let output = execute_with_privilege_escalation(
+                "chmod",
+                &[&format!("{:o}", mode), destination.to_str().unwrap()],
+            )?;
 
-            if !status.success() {
+            if !output.status.success() {
                 return Err(DhdError::AtomExecution(
-                    "Failed to set file permissions with sudo".to_string(),
+                    "Failed to set file permissions with privilege escalation".to_string(),
                 ));
             }
         }

@@ -1,4 +1,5 @@
 use crate::platform::PlatformInfo;
+use crate::utils::execute_with_privilege_escalation;
 use crate::{Atom, DhdError, Result};
 use std::fs;
 use std::path::PathBuf;
@@ -57,14 +58,6 @@ impl SystemdSocket {
         cmd
     }
 
-    fn sudo_systemctl_command(&self) -> Command {
-        if self.user {
-            self.systemctl_command()
-        } else {
-            Command::new("sudo")
-        }
-    }
-
     fn check_platform_support(&self) -> Result<()> {
         let platform = PlatformInfo::current();
 
@@ -121,20 +114,22 @@ impl SystemdSocket {
     }
 
     fn daemon_reload(&self) -> Result<()> {
-        let mut cmd = self.sudo_systemctl_command();
+        if self.user {
+            let status = self.systemctl_command().arg("daemon-reload").status()?;
 
-        if !self.user {
-            cmd.args(&["systemctl", "daemon-reload"]);
+            if !status.success() {
+                return Err(DhdError::AtomExecution(
+                    "Failed to reload systemd daemon".to_string(),
+                ));
+            }
         } else {
-            cmd.arg("daemon-reload");
-        }
+            let output = execute_with_privilege_escalation("systemctl", &["daemon-reload"])?;
 
-        let status = cmd.status()?;
-
-        if !status.success() {
-            return Err(DhdError::AtomExecution(
-                "Failed to reload systemd daemon".to_string(),
-            ));
+            if !output.status.success() {
+                return Err(DhdError::AtomExecution(
+                    "Failed to reload systemd daemon".to_string(),
+                ));
+            }
         }
 
         Ok(())
@@ -195,11 +190,12 @@ impl Atom for SystemdSocket {
                 if self.user {
                     fs::create_dir_all(parent)?;
                 } else {
-                    let status = Command::new("sudo")
-                        .args(&["mkdir", "-p", parent.to_str().unwrap()])
-                        .status()?;
+                    let output = execute_with_privilege_escalation(
+                        "mkdir",
+                        &["-p", parent.to_str().unwrap()],
+                    )?;
 
-                    if !status.success() {
+                    if !output.status.success() {
                         return Err(DhdError::AtomExecution(
                             "Failed to create systemd directory".to_string(),
                         ));
@@ -217,15 +213,12 @@ impl Atom for SystemdSocket {
                 std::env::temp_dir().join(format!("dhd_socket_{}.tmp", std::process::id()));
             fs::write(&temp_file, &self.content)?;
 
-            let status = Command::new("sudo")
-                .args(&[
-                    "mv",
-                    temp_file.to_str().unwrap(),
-                    socket_path.to_str().unwrap(),
-                ])
-                .status()?;
+            let output = execute_with_privilege_escalation(
+                "mv",
+                &[temp_file.to_str().unwrap(), socket_path.to_str().unwrap()],
+            )?;
 
-            if !status.success() {
+            if !output.status.success() {
                 let _ = fs::remove_file(&temp_file);
                 return Err(DhdError::AtomExecution(
                     "Failed to install socket file".to_string(),
@@ -243,21 +236,28 @@ impl Atom for SystemdSocket {
 
         // Enable the socket if requested
         if self.enable {
-            let mut cmd = self.sudo_systemctl_command();
+            if self.user {
+                let status = self
+                    .systemctl_command()
+                    .args(&["enable", &socket_name])
+                    .status()?;
 
-            if !self.user {
-                cmd.args(&["systemctl", "enable", &socket_name]);
+                if !status.success() {
+                    return Err(DhdError::AtomExecution(format!(
+                        "Failed to enable socket: {}",
+                        socket_name
+                    )));
+                }
             } else {
-                cmd.args(&["enable", &socket_name]);
-            }
+                let output =
+                    execute_with_privilege_escalation("systemctl", &["enable", &socket_name])?;
 
-            let status = cmd.status()?;
-
-            if !status.success() {
-                return Err(DhdError::AtomExecution(format!(
-                    "Failed to enable socket: {}",
-                    socket_name
-                )));
+                if !output.status.success() {
+                    return Err(DhdError::AtomExecution(format!(
+                        "Failed to enable socket: {}",
+                        socket_name
+                    )));
+                }
             }
 
             tracing::info!("Enabled socket: {}", socket_name);
@@ -265,21 +265,28 @@ impl Atom for SystemdSocket {
 
         // Start the socket if requested
         if self.start {
-            let mut cmd = self.sudo_systemctl_command();
+            if self.user {
+                let status = self
+                    .systemctl_command()
+                    .args(&["start", &socket_name])
+                    .status()?;
 
-            if !self.user {
-                cmd.args(&["systemctl", "start", &socket_name]);
+                if !status.success() {
+                    return Err(DhdError::AtomExecution(format!(
+                        "Failed to start socket: {}",
+                        socket_name
+                    )));
+                }
             } else {
-                cmd.args(&["start", &socket_name]);
-            }
+                let output =
+                    execute_with_privilege_escalation("systemctl", &["start", &socket_name])?;
 
-            let status = cmd.status()?;
-
-            if !status.success() {
-                return Err(DhdError::AtomExecution(format!(
-                    "Failed to start socket: {}",
-                    socket_name
-                )));
+                if !output.status.success() {
+                    return Err(DhdError::AtomExecution(format!(
+                        "Failed to start socket: {}",
+                        socket_name
+                    )));
+                }
             }
 
             tracing::info!("Started socket: {}", socket_name);

@@ -1,6 +1,6 @@
 use std::env;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Output};
 
 /// Resolves a path relative to the executable's location.
 ///
@@ -71,6 +71,9 @@ pub fn resolve_modules_directory(path: &str) -> Result<PathBuf, std::io::Error> 
 /// 2. doas
 /// 3. sudo
 ///
+/// Note: run0/polkit should have caching support soon for better UX.
+/// See: https://github.com/polkit-org/polkit/discussions/560
+///
 /// Returns the first available command as a String, or None if no command is available.
 pub fn detect_privilege_escalation_command() -> Option<String> {
     // Define commands in order of preference
@@ -135,6 +138,83 @@ pub fn execute_with_privilege_escalation(
     }
 
     cmd.output()
+}
+
+/// Creates a Command configured for privilege escalation.
+///
+/// This is useful when you need to configure the command further before execution
+/// (e.g., setting environment variables, working directory, etc.)
+///
+/// # Arguments
+/// * `command` - The command to execute with privileges
+///
+/// # Returns
+/// Result containing a configured Command or an error
+pub fn create_privileged_command(command: &str) -> Result<Command, std::io::Error> {
+    let priv_cmd = detect_privilege_escalation_command().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "No privilege escalation command found (sudo, doas, or run0)",
+        )
+    })?;
+
+    let mut cmd = Command::new(priv_cmd);
+    cmd.arg(command);
+    Ok(cmd)
+}
+
+/// Executes a shell command with privilege escalation.
+///
+/// This is useful for running complex shell commands that need privilege escalation.
+///
+/// # Arguments
+/// * `shell_command` - The shell command to execute
+///
+/// # Returns
+/// Result containing the Command output or an error
+pub fn execute_shell_with_privilege_escalation(
+    shell_command: &str,
+) -> Result<std::process::Output, std::io::Error> {
+    let priv_cmd = detect_privilege_escalation_command().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "No privilege escalation command found (sudo, doas, or run0)",
+        )
+    })?;
+
+    Command::new(priv_cmd)
+        .arg("sh")
+        .arg("-c")
+        .arg(shell_command)
+        .output()
+}
+
+/// Checks if the current process has root privileges.
+pub fn is_root() -> bool {
+    unsafe { libc::geteuid() == 0 }
+}
+
+/// Executes a command, using privilege escalation only if needed.
+///
+/// # Arguments
+/// * `command` - The command to execute
+/// * `args` - Arguments to pass to the command
+/// * `needs_privilege` - Whether this command requires privilege escalation
+///
+/// # Returns
+/// Result containing the Command output or an error
+pub fn execute_maybe_privileged(
+    command: &str,
+    args: &[&str],
+    needs_privilege: bool,
+) -> Result<Output, std::io::Error> {
+    if needs_privilege && !is_root() {
+        execute_with_privilege_escalation(command, args)
+    } else {
+        let mut cmd = Command::new(command);
+        cmd.args(args);
+        cmd.output()
+    }
 }
 
 #[cfg(test)]
