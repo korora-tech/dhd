@@ -56,6 +56,7 @@ impl PackageManager for Ports {
                 cwd: None,
                 env: None,
                 shell: None,
+                privilege_escalation: None,
             }),
             Box::new(RunCommand {
                 command: priv_cmd.clone(),
@@ -68,6 +69,7 @@ impl PackageManager for Ports {
                 cwd: None,
                 env: None,
                 shell: None,
+                privilege_escalation: None,
             }),
             Box::new(RunCommand {
                 command: priv_cmd,
@@ -81,6 +83,7 @@ impl PackageManager for Ports {
                 cwd: None,
                 env: None,
                 shell: None,
+                privilege_escalation: None,
             }),
         ])
     }
@@ -110,6 +113,7 @@ impl PackageManager for Ports {
                 cwd: None,
                 env: None,
                 shell: None,
+                privilege_escalation: None,
             }));
         }
 

@@ -52,6 +52,7 @@ impl PackageManager for Bun {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         })])
     }
 
@@ -65,6 +66,7 @@ impl PackageManager for Bun {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

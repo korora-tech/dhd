@@ -70,6 +70,7 @@ impl PackageManager for Paru {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }));
 
         atoms.push(Box::new(RunCommand {
@@ -78,6 +79,7 @@ impl PackageManager for Paru {
             cwd: Some("/tmp/paru".to_string()),
             env: None,
             shell: None,
+            privilege_escalation: None,
         }));
 
         atoms.push(Box::new(RunCommand {
@@ -86,6 +88,7 @@ impl PackageManager for Paru {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }));
 
         Ok(atoms)
@@ -101,6 +104,7 @@ impl PackageManager for Paru {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

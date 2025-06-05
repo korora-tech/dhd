@@ -7,6 +7,7 @@ export interface ExecuteCommandOptions {
   env?: Record<string, string>;
   failOnError?: boolean;
   shell?: string;
+  privilegeEscalation?: boolean;
 }
 
 export interface ExecuteCommand extends Action {

@@ -1,11 +1,17 @@
 use crate::{DhdError, Result};
-use oxc::allocator::Allocator;
-use oxc::ast::ast::Program;
-use oxc::parser::Parser;
-use oxc::span::SourceType;
 use std::path::Path;
 
+#[cfg(not(feature = "ast-parser"))]
+use oxc::allocator::Allocator;
+#[cfg(not(feature = "ast-parser"))]
+use oxc::ast::ast::Program;
+#[cfg(not(feature = "ast-parser"))]
+use oxc::parser::Parser;
+#[cfg(not(feature = "ast-parser"))]
+use oxc::span::SourceType;
+
 pub struct ModuleLoader {
+    #[cfg(not(feature = "ast-parser"))]
     allocator: Allocator,
     current_path: Option<std::path::PathBuf>,
 }
@@ -19,30 +25,44 @@ impl Default for ModuleLoader {
 impl ModuleLoader {
     pub fn new() -> Self {
         Self {
+            #[cfg(not(feature = "ast-parser"))]
             allocator: Allocator::default(),
             current_path: None,
         }
     }
 
     pub fn load_module(&mut self, path: &Path) -> Result<ModuleData> {
-        self.current_path = Some(path.to_path_buf());
-        let source = std::fs::read_to_string(path)
-            .map_err(|e| DhdError::ModuleParse(format!("Failed to read module: {}", e)))?;
-
-        let source_type = SourceType::from_path(path)
-            .map_err(|_| DhdError::ModuleParse("Invalid TypeScript file".to_string()))?;
-
-        let parser = Parser::new(&self.allocator, &source, source_type);
-        let parse_result = parser.parse();
-
-        if !parse_result.errors.is_empty() {
-            let errors: Vec<String> = parse_result.errors.iter().map(|e| e.to_string()).collect();
-            return Err(DhdError::ModuleParse(errors.join("\n")));
+        #[cfg(feature = "ast-parser")]
+        {
+            // Use the new AST-based parser
+            let ast_loader = crate::modules::ast_parser::AstModuleLoader::new();
+            ast_loader.load_module(path)
         }
 
-        self.extract_module_data(&parse_result.program)
+        #[cfg(not(feature = "ast-parser"))]
+        {
+            // Use the old string-based parser
+            self.current_path = Some(path.to_path_buf());
+            let source = std::fs::read_to_string(path)
+                .map_err(|e| DhdError::ModuleParse(format!("Failed to read module: {}", e)))?;
+
+            let source_type = SourceType::from_path(path)
+                .map_err(|_| DhdError::ModuleParse("Invalid TypeScript file".to_string()))?;
+
+            let parser = Parser::new(&self.allocator, &source, source_type);
+            let parse_result = parser.parse();
+
+            if !parse_result.errors.is_empty() {
+                let errors: Vec<String> =
+                    parse_result.errors.iter().map(|e| e.to_string()).collect();
+                return Err(DhdError::ModuleParse(errors.join("\n")));
+            }
+
+            self.extract_module_data(&parse_result.program)
+        }
     }
 
+    #[cfg(not(feature = "ast-parser"))]
     fn extract_module_data(&self, _program: &Program) -> Result<ModuleData> {
         // For now, use simple string parsing to extract module information
         // TODO: Implement proper AST parsing with oxc
@@ -525,6 +545,11 @@ impl ModuleLoader {
                     params.push(("shell".to_string(), shell.to_string()));
                 }
             }
+        }
+
+        // Check for privilegeEscalation
+        if content.contains("privilegeEscalation: true") {
+            params.push(("privilege_escalation".to_string(), "true".to_string()));
         }
 
         if !params.is_empty() {

@@ -57,6 +57,7 @@ impl PackageManager for Apt {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

@@ -53,6 +53,7 @@ impl PackageManager for Cargo {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         })])
     }
 
@@ -66,6 +67,7 @@ impl PackageManager for Cargo {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

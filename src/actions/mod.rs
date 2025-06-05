@@ -123,6 +123,7 @@ pub struct ExecuteCommand {
     pub cwd: Option<String>,
     pub env: Option<std::collections::HashMap<String, String>>,
     pub shell: Option<String>,
+    pub privilege_escalation: Option<bool>,
 }
 
 impl ExecuteCommand {
@@ -139,6 +140,7 @@ impl ExecuteCommand {
             cwd,
             env,
             shell,
+            privilege_escalation: None,
         }
     }
 }
@@ -154,6 +156,7 @@ impl Action for ExecuteCommand {
             cwd: self.cwd.clone(),
             env: self.env.clone(),
             shell: self.shell.clone(),
+            privilege_escalation: self.privilege_escalation,
         };
 
         Ok(vec![Box::new(atom)])

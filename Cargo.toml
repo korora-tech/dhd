@@ -81,6 +81,7 @@ default = ["desktop", "tui"]
 async = ["tokio"]
 desktop = ["tauri"]
 tui = ["ratatui", "crossterm"]
+ast-parser = []
 
 [dependencies.tokio]
 version = "1.42"

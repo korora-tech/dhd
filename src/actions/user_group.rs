@@ -39,13 +39,14 @@ impl Action for UserGroup {
         args.push(self.groups.join(","));
         args.push(username);
 
-        // Use sudo to run usermod with elevated privileges
+        // Use privilege escalation to run usermod
         atoms.push(Box::new(crate::atoms::RunCommand {
-            command: "sudo".to_string(),
-            args: Some([vec!["usermod".to_string()], args].concat()),
+            command: "usermod".to_string(),
+            args: Some(args),
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: Some(true),
         }));
 
         Ok(atoms)

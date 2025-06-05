@@ -59,6 +59,7 @@ impl PackageManager for Pacman {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 
