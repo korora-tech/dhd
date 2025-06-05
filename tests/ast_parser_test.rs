@@ -170,7 +170,7 @@ export default defineModule("platform-test")
     fn test_parse_ctx_user() {
         let temp_dir = TempDir::new().unwrap();
         let module_path = temp_dir.path().join("user-test.ts");
-        
+
         let module_content = r#"
 import { defineModule, userGroup, linkDotfile } from "@dhd/types";
 
@@ -187,15 +187,15 @@ export default defineModule("user-test")
         })
     ]);
 "#;
-        
+
         fs::write(&module_path, module_content).unwrap();
-        
+
         let loader = AstModuleLoader::new();
         let module = loader.load_module(&module_path).unwrap();
-        
+
         assert_eq!(module.name, "user-test");
         assert_eq!(module.actions.len(), 2);
-        
+
         // Check userGroup with ctx.user
         let user_action = &module.actions[0];
         assert_eq!(user_action.action_type, "userGroup");
@@ -205,7 +205,7 @@ export default defineModule("user-test")
         let (_, username) = user_param.unwrap();
         assert!(!username.is_empty());
         assert_ne!(username, "ctx.user");
-        
+
         // Check linkDotfile with ctx.user.homedir
         let link_action = &module.actions[1];
         assert_eq!(link_action.action_type, "linkDotfile");

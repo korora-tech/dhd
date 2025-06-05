@@ -37,11 +37,11 @@ impl<'a> ModuleVisitor<'a> {
         let username = std::env::var("USER")
             .or_else(|_| std::env::var("USERNAME"))
             .unwrap_or_else(|_| whoami::username());
-        
+
         let homedir = dirs::home_dir()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| format!("/home/{}", username));
-        
+
         Self {
             _allocator: allocator,
             module_data: ModuleData {
@@ -70,9 +70,7 @@ impl<'a> ModuleVisitor<'a> {
                 // Just ctx.user returns username
                 Some(self.user.username.clone())
             }
-            Expression::StaticMemberExpression(member) => {
-                self.evaluate_ctx_expression(member)
-            }
+            Expression::StaticMemberExpression(member) => self.evaluate_ctx_expression(member),
             Expression::BinaryExpression(binary) if binary.operator == BinaryOperator::Addition => {
                 // Handle string concatenation with +
                 let left = self.extract_string_literal(&binary.left)?;
@@ -82,7 +80,7 @@ impl<'a> ModuleVisitor<'a> {
             _ => None,
         }
     }
-    
+
     fn evaluate_ctx_expression(&self, member: &StaticMemberExpression<'a>) -> Option<String> {
         // Check for ctx.user
         if let Expression::Identifier(id) = &member.object {
@@ -91,7 +89,7 @@ impl<'a> ModuleVisitor<'a> {
                 return Some(self.user.username.clone());
             }
         }
-        
+
         // Check for ctx.user.homedir
         if let Expression::StaticMemberExpression(inner) = &member.object {
             if inner.property.name == "user" {
@@ -102,7 +100,7 @@ impl<'a> ModuleVisitor<'a> {
                 }
             }
         }
-        
+
         None
     }
 
