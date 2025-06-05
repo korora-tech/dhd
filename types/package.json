@@ -1,6 +1,6 @@
 {
   "name": "@dhd/types",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "TypeScript type definitions for DHD configuration modules",
   "type": "module",
   "exports": {
