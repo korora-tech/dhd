@@ -238,11 +238,13 @@ mod tests {
 
         let result = atom.check();
         assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        // The error could be either "dconf command not found" (on CI) or "Source dconf file does not exist" (on dev machines with dconf)
         assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Source dconf file does not exist")
+            error_msg.contains("dconf command not found")
+                || error_msg.contains("Source dconf file does not exist:"),
+            "Unexpected error message: {}",
+            error_msg
         );
     }
 
