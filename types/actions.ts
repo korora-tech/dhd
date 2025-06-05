@@ -8,6 +8,7 @@ export * from "./actions/FileWrite";
 export * from "./actions/DconfImport";
 export * from "./actions/SystemdService";
 export * from "./actions/SystemdSocket";
+export * from "./actions/UserGroup";
 
 import type { PackageInstall } from "./actions/PackageInstall";
 import type { ExecuteCommand } from "./actions/ExecuteCommand";
@@ -18,6 +19,7 @@ import type { FileWrite } from "./actions/FileWrite";
 import type { DconfImport } from "./actions/DconfImport";
 import type { SystemdService } from "./actions/SystemdService";
 import type { SystemdSocket } from "./actions/SystemdSocket";
+import type { UserGroup } from "./actions/UserGroup";
 
 export type AnyAction =
 	| PackageInstall
@@ -28,4 +30,5 @@ export type AnyAction =
 	| FileWrite
 	| DconfImport
 	| SystemdService
-	| SystemdSocket;
+	| SystemdSocket
+	| UserGroup;

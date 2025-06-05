@@ -1,7 +1,10 @@
 pub mod package;
+pub mod user_group;
 
 use crate::{Atom, Result};
 use std::fmt::Debug;
+
+pub use user_group::UserGroup;
 
 /// An Action is a high-level operation that can be planned into one or more Atoms
 pub trait Action: Debug + Send + Sync {

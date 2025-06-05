@@ -1,6 +1,6 @@
 use crate::actions::{
     Action, ExecuteCommand, LinkDotfile as LinkDotfileAction,
-    PackageInstall as PackageInstallAction,
+    PackageInstall as PackageInstallAction, UserGroup,
 };
 use crate::atoms::{CopyFile, DconfImport, FileWrite, HttpDownload, SystemdService, SystemdSocket};
 use crate::modules::loader::ModuleAction;
@@ -167,6 +167,22 @@ fn action_to_atoms(action: &ModuleAction) -> Result<Vec<Box<dyn Atom>>> {
             Ok(vec![Box::new(SystemdSocket::new(
                 name, content, user, enable, start, reload,
             ))])
+        }
+        "userGroup" => {
+            let user = get_param_required(params, "user")?;
+            let groups_str = get_param_required(params, "groups")?;
+            let groups: Vec<String> = groups_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect();
+            let append = get_param_bool(params, "append", true);
+
+            let action = UserGroup {
+                user,
+                groups,
+                append: Some(append),
+            };
+            action.plan()
         }
         _ => Err(DhdError::AtomExecution(format!(
             "Unknown action type: {}",
