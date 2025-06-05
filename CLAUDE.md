@@ -60,8 +60,15 @@ Key architectural principles:
 ## Release Process
 
 To release a new version:
-1. Update version in `Cargo.toml`, `package.json`, and `types/package.json`
-2. Commit with message: `chore: bump version to X.Y.Z`
-3. Create tag without v prefix: `git tag X.Y.Z`
-4. Push commits and tags: `git push && git push --tags`
-5. CI will automatically publish to crates.io and JSR
+1. Run `just release X.Y.Z` (e.g., `just release 0.2.5`)
+2. This will automatically:
+   - Update version in `Cargo.toml`, `package.json`, `types/package.json`, and `tauri.conf.json`
+   - Commit with message: `chore: bump version to X.Y.Z`
+   - Create tag without v prefix: `git tag X.Y.Z`
+   - Push commits and tags: `git push && git push --tags`
+3. CI will automatically publish to crates.io and JSR
+
+Alternative manual steps:
+- `just tag X.Y.Z` - Update versions only
+- `just tag-commit X.Y.Z` - Commit and tag only
+- `just check-versions` - Check current versions across all files
