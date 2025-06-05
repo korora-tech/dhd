@@ -65,6 +65,7 @@ impl PackageManager for Winget {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

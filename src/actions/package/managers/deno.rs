@@ -50,6 +50,7 @@ impl PackageManager for Deno {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         })])
     }
 
@@ -74,6 +75,7 @@ impl PackageManager for Deno {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

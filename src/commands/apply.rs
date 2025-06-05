@@ -140,8 +140,10 @@ fn action_to_atoms(action: &ModuleAction) -> Result<Vec<Box<dyn Atom>>> {
             let cwd = get_param_optional(params, "cwd");
             let env = parse_env_params(params);
             let shell = get_param_optional(params, "shell");
+            let privilege_escalation = get_param_bool(params, "privilege_escalation", false);
 
-            let action = ExecuteCommand::new(command, args, cwd, env, shell);
+            let mut action = ExecuteCommand::new(command, args, cwd, env, shell);
+            action.privilege_escalation = Some(privilege_escalation);
             action.plan()
         }
         "systemdService" => {

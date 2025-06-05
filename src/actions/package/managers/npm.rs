@@ -52,6 +52,7 @@ impl PackageManager for Npm {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

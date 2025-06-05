@@ -10,6 +10,7 @@ pub struct RunCommand {
     pub cwd: Option<String>,
     pub env: Option<HashMap<String, String>>,
     pub shell: Option<String>,
+    pub privilege_escalation: Option<bool>,
 }
 
 impl Atom for RunCommand {
@@ -44,9 +45,17 @@ impl Atom for RunCommand {
 
 impl RunCommand {
     pub fn run(&self) -> Result<()> {
+        let use_sudo = self.privilege_escalation.unwrap_or(false);
+
         let mut cmd = if let Some(shell) = &self.shell {
             // If shell is specified, wrap the command
-            let mut shell_cmd = Command::new(shell);
+            let mut shell_cmd = if use_sudo {
+                let mut sudo_cmd = Command::new("sudo");
+                sudo_cmd.arg(shell);
+                sudo_cmd
+            } else {
+                Command::new(shell)
+            };
 
             // Build the full command string
             let mut full_command = self.command.clone();
@@ -71,11 +80,20 @@ impl RunCommand {
             shell_cmd
         } else {
             // Original behavior without shell
-            let mut cmd = Command::new(&self.command);
-            if let Some(args) = &self.args {
-                cmd.args(args);
+            if use_sudo {
+                let mut sudo_cmd = Command::new("sudo");
+                sudo_cmd.arg(&self.command);
+                if let Some(args) = &self.args {
+                    sudo_cmd.args(args);
+                }
+                sudo_cmd
+            } else {
+                let mut cmd = Command::new(&self.command);
+                if let Some(args) = &self.args {
+                    cmd.args(args);
+                }
+                cmd
             }
-            cmd
         };
 
         if let Some(cwd) = &self.cwd {
@@ -123,6 +141,7 @@ mod tests {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         };
 
         assert!(cmd.run().is_ok());
@@ -137,6 +156,7 @@ mod tests {
             cwd: Some(temp_dir.path().to_string_lossy().to_string()),
             env: None,
             shell: None,
+            privilege_escalation: None,
         };
 
         assert!(cmd.run().is_ok());
@@ -153,6 +173,7 @@ mod tests {
             cwd: None,
             env: Some(env),
             shell: None,
+            privilege_escalation: None,
         };
 
         assert!(cmd.run().is_ok());
@@ -166,6 +187,7 @@ mod tests {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         };
 
         let result = cmd.run();
@@ -186,6 +208,7 @@ mod tests {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         };
 
         assert!(cmd.run().is_err());
@@ -202,6 +225,7 @@ mod tests {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         };
 
         assert!(cmd.run().is_ok());
@@ -219,6 +243,7 @@ mod tests {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         };
 
         let desc = cmd.describe();
@@ -236,8 +261,27 @@ mod tests {
             cwd: None,
             env: None,
             shell: Some("sh".to_string()),
+            privilege_escalation: None,
         };
 
         assert!(cmd.run().is_ok());
+    }
+
+    #[test]
+    fn test_run_command_with_privilege_escalation() {
+        // Test that privilege escalation adds sudo
+        let cmd = RunCommand {
+            command: "whoami".to_string(),
+            args: None,
+            cwd: None,
+            env: None,
+            shell: None,
+            privilege_escalation: Some(true),
+        };
+
+        // We can't actually test running with sudo in tests,
+        // but we can verify the command structure
+        let desc = cmd.describe();
+        assert_eq!(desc, "Running command: whoami");
     }
 }

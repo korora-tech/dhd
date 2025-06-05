@@ -59,6 +59,7 @@ impl PackageManager for Pkg {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         })])
     }
 
@@ -78,6 +79,7 @@ impl PackageManager for Pkg {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 

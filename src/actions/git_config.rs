@@ -46,6 +46,7 @@ impl Action for GitConfig {
                 cwd: None,
                 env: None,
                 shell: None,
+                privilege_escalation: None,
             }));
         }
 

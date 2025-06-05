@@ -60,6 +60,7 @@ impl PackageManager for Flatpak {
             cwd: None,
             env: None,
             shell: None,
+            privilege_escalation: None,
         }))
     }
 
