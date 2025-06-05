@@ -184,6 +184,35 @@ fn action_to_atoms(action: &ModuleAction) -> Result<Vec<Box<dyn Atom>>> {
             };
             action.plan()
         }
+        "gitConfig" => {
+            let scope = get_param_required(params, "scope")?;
+            let configs_str = get_param_required(params, "configs")?;
+
+            // Parse the configs string (format: "key1=value1,key2=value2")
+            let mut configs = HashMap::new();
+            for pair in configs_str.split(',') {
+                if let Some(eq_pos) = pair.find('=') {
+                    let key = pair[..eq_pos].trim().to_string();
+                    let value = pair[eq_pos + 1..].trim().to_string();
+                    configs.insert(key, value);
+                }
+            }
+
+            let scope = match scope.as_str() {
+                "global" => crate::actions::GitConfigScope::Global,
+                "system" => crate::actions::GitConfigScope::System,
+                "local" => crate::actions::GitConfigScope::Local,
+                _ => {
+                    return Err(DhdError::AtomExecution(format!(
+                        "Invalid git config scope: {}",
+                        scope
+                    )));
+                }
+            };
+
+            let action = crate::actions::GitConfig { scope, configs };
+            action.plan()
+        }
         _ => Err(DhdError::AtomExecution(format!(
             "Unknown action type: {}",
             action.action_type

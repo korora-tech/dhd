@@ -266,6 +266,21 @@ impl ModuleLoader {
                 break;
             }
         }
+
+        // Extract gitConfig actions
+        pos = 0;
+        while let Some(start) = source[pos..].find("gitConfig({") {
+            let abs_start = pos + start + 11;
+            if let Some(end) = self.find_closing_brace(&source[abs_start..]) {
+                let action_content = &source[abs_start..abs_start + end];
+                if let Some(action) = self.parse_git_config(action_content) {
+                    actions.push(action);
+                }
+                pos = abs_start + end;
+            } else {
+                break;
+            }
+        }
     }
 
     fn remove_comments(&self, source: &str) -> String {
@@ -811,6 +826,69 @@ impl ModuleLoader {
         if !params.is_empty() {
             Some(ModuleAction {
                 action_type: "systemdSocket".to_string(),
+                params,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn parse_git_config(&self, content: &str) -> Option<ModuleAction> {
+        let mut params = Vec::new();
+
+        // Extract scope
+        if let Some(scope_start) = content.find("scope:") {
+            let after_scope = &content[scope_start + 6..];
+            if let Some(quote_start) = after_scope.find('"') {
+                if let Some(quote_end) = after_scope[quote_start + 1..].find('"') {
+                    let scope = &after_scope[quote_start + 1..quote_start + 1 + quote_end];
+                    params.push(("scope".to_string(), scope.to_string()));
+                }
+            }
+        }
+
+        // Extract configs object
+        if let Some(configs_start) = content.find("configs:") {
+            let after_configs = &content[configs_start + 8..];
+            if let Some(obj_start) = after_configs.find('{') {
+                if let Some(obj_end) = self.find_closing_brace(&after_configs[obj_start + 1..]) {
+                    let configs_content = &after_configs[obj_start + 1..obj_start + 1 + obj_end];
+
+                    // Parse key-value pairs from the configs object
+                    let mut config_pairs = Vec::new();
+                    let lines = configs_content.split(',');
+                    for line in lines {
+                        let line = line.trim();
+                        if line.is_empty() {
+                            continue;
+                        }
+
+                        // Handle both quoted and unquoted keys
+                        if let Some(colon_pos) = line.find(':') {
+                            let key = line[..colon_pos]
+                                .trim()
+                                .trim_matches('"')
+                                .trim_matches('\'');
+                            let value = line[colon_pos + 1..]
+                                .trim()
+                                .trim_matches('"')
+                                .trim_matches('\'');
+                            if !key.is_empty() && !value.is_empty() {
+                                config_pairs.push(format!("{}={}", key, value));
+                            }
+                        }
+                    }
+
+                    if !config_pairs.is_empty() {
+                        params.push(("configs".to_string(), config_pairs.join(",")));
+                    }
+                }
+            }
+        }
+
+        if !params.is_empty() {
+            Some(ModuleAction {
+                action_type: "gitConfig".to_string(),
                 params,
             })
         } else {

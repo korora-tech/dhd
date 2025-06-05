@@ -1,9 +1,11 @@
+pub mod git_config;
 pub mod package;
 pub mod user_group;
 
 use crate::{Atom, Result};
 use std::fmt::Debug;
 
+pub use git_config::{GitConfig, GitConfigScope};
 pub use user_group::UserGroup;
 
 /// An Action is a high-level operation that can be planned into one or more Atoms

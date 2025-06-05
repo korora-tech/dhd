@@ -9,6 +9,7 @@ export * from "./actions/DconfImport";
 export * from "./actions/SystemdService";
 export * from "./actions/SystemdSocket";
 export * from "./actions/UserGroup";
+export * from "./actions/GitConfig";
 
 import type { PackageInstall } from "./actions/PackageInstall";
 import type { ExecuteCommand } from "./actions/ExecuteCommand";
@@ -20,6 +21,7 @@ import type { DconfImport } from "./actions/DconfImport";
 import type { SystemdService } from "./actions/SystemdService";
 import type { SystemdSocket } from "./actions/SystemdSocket";
 import type { UserGroup } from "./actions/UserGroup";
+import type { GitConfig } from "./actions/GitConfig";
 
 export type AnyAction =
 	| PackageInstall
@@ -31,4 +33,5 @@ export type AnyAction =
 	| DconfImport
 	| SystemdService
 	| SystemdSocket
-	| UserGroup;
+	| UserGroup
+	| GitConfig;
