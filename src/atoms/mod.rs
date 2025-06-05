@@ -9,6 +9,7 @@ pub mod run_command;
 pub mod symlink;
 pub mod systemd_service;
 pub mod systemd_socket;
+pub mod systemd_unit_builder;
 
 pub use copy_file::*;
 pub use dconf_import::*;

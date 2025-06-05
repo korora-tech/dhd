@@ -1,5 +1,5 @@
-use crate::{Atom, Result};
 use crate::actions::Action;
+use crate::{Atom, Result};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 

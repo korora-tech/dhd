@@ -1,6 +1,8 @@
+use crate::atoms::systemd_unit_builder::{SystemdSocketContent, build_socket_unit};
 use crate::platform::PlatformInfo;
 use crate::utils::execute_with_privilege_escalation;
 use crate::{Atom, DhdError, Result};
+use serde_json;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -146,8 +148,24 @@ impl Atom for SystemdSocket {
 
         // Check if socket file content differs
         let current_content = self.get_socket_content()?;
+
+        // Generate expected content from typed data if needed
+        let expected_content = if self.content.trim().starts_with('{') {
+            // Try to parse as JSON
+            match serde_json::from_str::<SystemdSocketContent>(&self.content) {
+                Ok(typed_content) => build_socket_unit(&typed_content),
+                Err(_) => {
+                    // If parsing fails, treat as raw content
+                    self.content.clone()
+                }
+            }
+        } else {
+            // Use raw content as-is
+            self.content.clone()
+        };
+
         let content_differs = match current_content {
-            Some(content) => content.trim() != self.content.trim(),
+            Some(content) => content.trim() != expected_content.trim(),
             None => true,
         };
 
@@ -204,14 +222,29 @@ impl Atom for SystemdSocket {
             }
         }
 
+        // Generate content from typed data if needed
+        let socket_content = if self.content.trim().starts_with('{') {
+            // Try to parse as JSON
+            match serde_json::from_str::<SystemdSocketContent>(&self.content) {
+                Ok(typed_content) => build_socket_unit(&typed_content),
+                Err(_) => {
+                    // If parsing fails, treat as raw content
+                    self.content.clone()
+                }
+            }
+        } else {
+            // Use raw content as-is
+            self.content.clone()
+        };
+
         // Write the socket file
         if self.user {
-            fs::write(&socket_path, &self.content)?;
+            fs::write(&socket_path, &socket_content)?;
         } else {
             // Write to temp file first, then move with sudo
             let temp_file =
                 std::env::temp_dir().join(format!("dhd_socket_{}.tmp", std::process::id()));
-            fs::write(&temp_file, &self.content)?;
+            fs::write(&temp_file, &socket_content)?;
 
             let output = execute_with_privilege_escalation(
                 "mv",

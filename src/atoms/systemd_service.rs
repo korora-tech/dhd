@@ -1,6 +1,8 @@
+use crate::atoms::systemd_unit_builder::{SystemdServiceContent, build_service_unit};
 use crate::platform::PlatformInfo;
 use crate::utils::execute_with_privilege_escalation;
 use crate::{Atom, DhdError, Result};
+use serde_json;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -146,8 +148,24 @@ impl Atom for SystemdService {
 
         // Check if service file content differs
         let current_content = self.get_service_content()?;
+
+        // Determine the expected content
+        let expected_content = if self.content.trim().starts_with('{') {
+            // Try to parse as JSON
+            match serde_json::from_str::<SystemdServiceContent>(&self.content) {
+                Ok(typed_content) => build_service_unit(&typed_content),
+                Err(_) => {
+                    // If parsing fails, treat as raw content
+                    self.content.clone()
+                }
+            }
+        } else {
+            // Raw unit file content
+            self.content.clone()
+        };
+
         let content_differs = match current_content {
-            Some(content) => content.trim() != self.content.trim(),
+            Some(content) => content.trim() != expected_content.trim(),
             None => true,
         };
 
@@ -184,6 +202,21 @@ impl Atom for SystemdService {
         let service_path = self.get_service_path();
         let service_name = self.ensure_service_name();
 
+        // Determine the content to write
+        let unit_content = if self.content.trim().starts_with('{') {
+            // Try to parse as JSON
+            match serde_json::from_str::<SystemdServiceContent>(&self.content) {
+                Ok(typed_content) => build_service_unit(&typed_content),
+                Err(_) => {
+                    // If parsing fails, treat as raw content
+                    self.content.clone()
+                }
+            }
+        } else {
+            // Raw unit file content
+            self.content.clone()
+        };
+
         // Create parent directory if it doesn't exist
         if let Some(parent) = service_path.parent() {
             if !parent.exists() {
@@ -206,12 +239,12 @@ impl Atom for SystemdService {
 
         // Write the service file
         if self.user {
-            fs::write(&service_path, &self.content)?;
+            fs::write(&service_path, &unit_content)?;
         } else {
             // Write to temp file first, then move with sudo
             let temp_file =
                 std::env::temp_dir().join(format!("dhd_service_{}.tmp", std::process::id()));
-            fs::write(&temp_file, &self.content)?;
+            fs::write(&temp_file, &unit_content)?;
 
             let output = execute_with_privilege_escalation(
                 "mv",
