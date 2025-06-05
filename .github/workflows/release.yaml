@@ -63,35 +63,16 @@ jobs:
             libayatana-indicator3-dev \
             libgtksourceview-3.0-dev
 
-      - name: Install Bun (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Setup Node.js (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Install web dependencies
-        shell: bash
-        run: |
-          if command -v bun >/dev/null 2>&1; then
-            bun install
-          else
-            npm ci
-          fi
+        run: bun install
 
       - name: Build web assets
-        shell: bash
-        run: |
-          if command -v bun >/dev/null 2>&1; then
-            bun run build
-          else
-            npm run build
-          fi
+        run: bun run build
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
