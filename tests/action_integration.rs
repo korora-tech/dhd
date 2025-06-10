@@ -148,6 +148,7 @@ fn test_complex_action_combination() {
             ActionType::PackageInstall(a) => a.plan(std::path::Path::new(".")),
             ActionType::ExecuteCommand(a) => a.plan(std::path::Path::new(".")),
             ActionType::LinkDotfile(a) => a.plan(std::path::Path::new(".")),
+            ActionType::LinkDirectory(a) => a.plan(std::path::Path::new(".")),
             ActionType::CopyFile(a) => a.plan(std::path::Path::new(".")),
             ActionType::Directory(a) => a.plan(std::path::Path::new(".")),
             ActionType::HttpDownload(a) => a.plan(std::path::Path::new(".")),

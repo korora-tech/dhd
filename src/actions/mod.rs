@@ -3,6 +3,7 @@ use dhd_macros::typescript_enum;
 pub mod package_install;
 pub mod package_install_v2;
 pub mod link_dotfile;
+pub mod link_directory;
 pub mod execute_command;
 pub mod copy_file;
 pub mod directory;
@@ -13,6 +14,7 @@ pub mod compat;
 
 pub use package_install::PackageInstall;
 pub use link_dotfile::{LinkDotfile, link_dotfile};
+pub use link_directory::{LinkDirectory, link_directory};
 pub use execute_command::ExecuteCommand;
 pub use copy_file::CopyFile;
 pub use directory::{Directory, directory};
@@ -24,6 +26,7 @@ pub use systemd_service::{SystemdService, systemd_service};
 pub enum ActionType {
     PackageInstall(PackageInstall),
     LinkDotfile(LinkDotfile),
+    LinkDirectory(LinkDirectory),
     ExecuteCommand(ExecuteCommand),
     CopyFile(CopyFile),
     Directory(Directory),
@@ -42,6 +45,7 @@ impl Action for ActionType {
         match self {
             ActionType::PackageInstall(action) => action.name(),
             ActionType::LinkDotfile(action) => action.name(),
+            ActionType::LinkDirectory(action) => action.name(),
             ActionType::ExecuteCommand(action) => action.name(),
             ActionType::CopyFile(action) => action.name(),
             ActionType::Directory(action) => action.name(),
@@ -55,6 +59,7 @@ impl Action for ActionType {
         match self {
             ActionType::PackageInstall(action) => action.plan(module_dir),
             ActionType::LinkDotfile(action) => action.plan(module_dir),
+            ActionType::LinkDirectory(action) => action.plan(module_dir),
             ActionType::ExecuteCommand(action) => action.plan(module_dir),
             ActionType::CopyFile(action) => action.plan(module_dir),
             ActionType::Directory(action) => action.plan(module_dir),
