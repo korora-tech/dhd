@@ -71,9 +71,9 @@ export default defineModule("complex-app")
             args: ["--init", "--config", "/etc/complex-app.conf"],
             escalate: true
         }),
-        linkDotfile({
-            from: "complex-app.conf",
-            to: "~/.config/complex-app/config.conf",
+        linkFile({
+            source: "complex-app.conf",
+            target: "~/.config/complex-app/config.conf",
             force: true
         })
     ]);
@@ -265,8 +265,8 @@ export default defineModule("multi-action")
     .description("Module with multiple actions")
     .actions([
         packageInstall({ names: ["tool1", "tool2"] }),
-        linkDotfile({ from: "config1.toml", to: "~/.config/tool1/config.toml" }),
-        linkDotfile({ from: "config2.toml", to: "~/.config/tool2/config.toml" }),
+        linkFile({ source: "config1.toml", target: "~/.config/tool1/config.toml" }),
+        linkFile({ source: "config2.toml", target: "~/.config/tool2/config.toml" }),
         executeCommand({ command: "tool1", args: ["--init"] }),
         executeCommand({ command: "tool2", args: ["--setup"] })
     ]);
@@ -312,7 +312,7 @@ export default defineModule("all-actions")
     .description("Module demonstrating all action types")
     .actions([
         packageInstall({ names: ["package1"] }),
-        linkDotfile({ from: "dotfile", to: "~/.dotfile" }),
+        linkFile({ source: "dotfile", target: "~/.dotfile" }),
         executeCommand({ command: "echo", args: ["test"] }),
         directory({ path: "/test/dir" })
     ]);

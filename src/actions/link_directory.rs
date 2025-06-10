@@ -32,15 +32,15 @@ fn resolve_xdg_target(target: &str) -> PathBuf {
 #[typescript_type]
 /// Links a directory from the module to a target location
 ///
-/// * `from` - Path to the source directory, relative to the module directory
-/// * `to` - Target path where the symlink will be created
+/// * `source` - Path to the source directory, relative to the module directory
+/// * `target` - Target path where the symlink will be created
 ///   - If absolute: used as-is
 ///   - If starts with `~/`: expanded to home directory
 ///   - If relative: resolved relative to XDG_CONFIG_HOME (usually ~/.config)
 /// * `force` - If true, creates parent directories and overwrites existing files/directories
 pub struct LinkDirectory {
-    pub from: String,
-    pub to: String,
+    pub source: String,
+    pub target: String,
     pub force: bool,
 }
 
@@ -55,20 +55,20 @@ impl Action for LinkDirectory {
     }
 
     fn plan(&self, module_dir: &std::path::Path) -> Vec<Box<dyn crate::atom::Atom>> {
-        // Resolve from path relative to module directory if it's not absolute
-        let from_path = if PathBuf::from(&self.from).is_absolute() {
-            PathBuf::from(&self.from)
+        // Resolve source path relative to module directory if it's not absolute
+        let source_path = if PathBuf::from(&self.source).is_absolute() {
+            PathBuf::from(&self.source)
         } else {
-            module_dir.join(&self.from)
+            module_dir.join(&self.source)
         };
 
-        // Resolve to path using XDG conventions
-        let to_path = resolve_xdg_target(&self.to);
+        // Resolve target path using XDG conventions
+        let target_path = resolve_xdg_target(&self.target);
 
         vec![Box::new(AtomCompat::new(
-            Box::new(crate::atoms::SymlinkFile {
-                source: from_path,
-                target: to_path,
+            Box::new(crate::atoms::LinkFile {
+                source: source_path,
+                target: target_path,
                 force: self.force,
             }),
             "link_directory".to_string(),
@@ -84,28 +84,28 @@ mod tests {
     #[test]
     fn test_link_directory_creation() {
         let action = LinkDirectory {
-            from: "/home/user/.dotfiles/config".to_string(),
-            to: "/home/user/.config/app".to_string(),
+            source: "/home/user/.dotfiles/config".to_string(),
+            target: "/home/user/.config/app".to_string(),
             force: false,
         };
 
-        assert_eq!(action.from, "/home/user/.dotfiles/config");
-        assert_eq!(action.to, "/home/user/.config/app");
+        assert_eq!(action.source, "/home/user/.dotfiles/config");
+        assert_eq!(action.target, "/home/user/.config/app");
         assert_eq!(action.force, false);
     }
 
     #[test]
     fn test_link_directory_helper_function() {
         let action = link_directory(LinkDirectory {
-            from: "configs/app".to_string(),
-            to: "app".to_string(),
+            source: "configs/app".to_string(),
+            target: "app".to_string(),
             force: true,
         });
 
         match action {
             ActionType::LinkDirectory(link) => {
-                assert_eq!(link.from, "configs/app");
-                assert_eq!(link.to, "app");
+                assert_eq!(link.source, "configs/app");
+                assert_eq!(link.target, "app");
                 assert_eq!(link.force, true);
             }
             _ => panic!("Expected LinkDirectory action type"),
@@ -115,8 +115,8 @@ mod tests {
     #[test]
     fn test_link_directory_name() {
         let action = LinkDirectory {
-            from: "source".to_string(),
-            to: "target".to_string(),
+            source: "source".to_string(),
+            target: "target".to_string(),
             force: false,
         };
 
@@ -126,8 +126,8 @@ mod tests {
     #[test]
     fn test_link_directory_plan() {
         let action = LinkDirectory {
-            from: "/source/path".to_string(),
-            to: "/target/path".to_string(),
+            source: "/source/path".to_string(),
+            target: "/target/path".to_string(),
             force: false,
         };
 
@@ -142,8 +142,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkDirectory {
-            from: "config".to_string(),
-            to: "~/.config/app".to_string(),
+            source: "config".to_string(),
+            target: "~/.config/app".to_string(),
             force: false,
         };
 
@@ -162,8 +162,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkDirectory {
-            from: "/absolute/source/path".to_string(),
-            to: "~/.config/app".to_string(),
+            source: "/absolute/source/path".to_string(),
+            target: "~/.config/app".to_string(),
             force: false,
         };
 
@@ -205,8 +205,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkDirectory {
-            from: "config".to_string(),
-            to: "app".to_string(), // Relative to XDG_CONFIG_HOME
+            source: "config".to_string(),
+            target: "app".to_string(), // Relative to XDG_CONFIG_HOME
             force: false,
         };
 
@@ -230,8 +230,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkDirectory {
-            from: "config".to_string(),
-            to: "app".to_string(),
+            source: "config".to_string(),
+            target: "app".to_string(),
             force: true,
         };
 

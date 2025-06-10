@@ -56,7 +56,7 @@ fn test_generate_types_command() {
     
     // Verify the file ends with export {} to make it a module
     assert!(content.contains("export {};"));
-    assert!(content.contains("LinkDotfile"));
+    assert!(content.contains("LinkFile"));
     assert!(content.contains("ExecuteCommand"));
     
     // Verify that tsconfig.json was also created

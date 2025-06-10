@@ -12,7 +12,7 @@ export default defineModule("test-module")
     .description("Test module for execution")
     .actions([
         packageInstall({ names: ["test-tool"] }),
-        linkDotfile({ from: "config.toml", to: "test/config.toml", force: true }),
+        linkFile({ source: "config.toml", target: "test/config.toml", force: true }),
         executeCommand({ command: "test-tool", args: ["--init"] })
     ]);
 "#;

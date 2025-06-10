@@ -2,15 +2,15 @@ use std::path::PathBuf;
 use crate::atoms::Atom;
 
 #[derive(Debug, Clone)]
-pub struct SymlinkFile {
+pub struct LinkFile {
     pub source: PathBuf,
     pub target: PathBuf,
     pub force: bool,
 }
 
-impl Atom for SymlinkFile {
+impl Atom for LinkFile {
     fn name(&self) -> &str {
-        "SymlinkFile"
+        "LinkFile"
     }
 
     fn execute(&self) -> Result<(), String> {
@@ -73,18 +73,18 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn test_symlink_file_name() {
-        let atom = SymlinkFile {
+    fn test_link_file_name() {
+        let atom = LinkFile {
             source: PathBuf::from("/source"),
             target: PathBuf::from("/target"),
             force: false,
         };
-        assert_eq!(atom.name(), "SymlinkFile");
+        assert_eq!(atom.name(), "LinkFile");
     }
 
     #[test]
-    fn test_symlink_file_clone() {
-        let atom = SymlinkFile {
+    fn test_link_file_clone() {
+        let atom = LinkFile {
             source: PathBuf::from("/source"),
             target: PathBuf::from("/target"),
             force: false,
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_symlink_file_execute_success() {
+    fn test_link_file_execute_success() {
         let temp_dir = TempDir::new().unwrap();
         let source_path = temp_dir.path().join("source.txt");
         let target_path = temp_dir.path().join("target.txt");
@@ -106,7 +106,7 @@ mod tests {
         // Create source file
         fs::write(&source_path, "test content").unwrap();
         
-        let atom = SymlinkFile {
+        let atom = LinkFile {
             source: source_path.clone(),
             target: target_path.clone(),
             force: false,
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_symlink_file_execute_target_exists() {
+    fn test_link_file_execute_target_exists() {
         let temp_dir = TempDir::new().unwrap();
         let source_path = temp_dir.path().join("source.txt");
         let target_path = temp_dir.path().join("target.txt");
@@ -132,7 +132,7 @@ mod tests {
         fs::write(&source_path, "source content").unwrap();
         fs::write(&target_path, "target content").unwrap();
         
-        let atom = SymlinkFile {
+        let atom = LinkFile {
             source: source_path,
             target: target_path,
             force: false,
@@ -145,12 +145,12 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_symlink_file_execute_source_not_exist() {
+    fn test_link_file_execute_source_not_exist() {
         let temp_dir = TempDir::new().unwrap();
         let source_path = temp_dir.path().join("nonexistent.txt");
         let target_path = temp_dir.path().join("target.txt");
         
-        let atom = SymlinkFile {
+        let atom = LinkFile {
             source: source_path,
             target: target_path.clone(),
             force: false,
@@ -164,8 +164,8 @@ mod tests {
 
     #[test]
     #[cfg(not(unix))]
-    fn test_symlink_file_execute_non_unix() {
-        let atom = SymlinkFile {
+    fn test_link_file_execute_non_unix() {
+        let atom = LinkFile {
             source: PathBuf::from("/source"),
             target: PathBuf::from("/target"),
             force: false,
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_symlink_file_force_creates_parent_dirs() {
+    fn test_link_file_force_creates_parent_dirs() {
         let temp_dir = TempDir::new().unwrap();
         let source_path = temp_dir.path().join("source.txt");
         let target_path = temp_dir.path().join("nested/dir/target.txt");
@@ -186,7 +186,7 @@ mod tests {
         // Create source file
         fs::write(&source_path, "test content").unwrap();
         
-        let atom = SymlinkFile {
+        let atom = LinkFile {
             source: source_path.clone(),
             target: target_path.clone(),
             force: true,
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_symlink_file_force_overwrites_existing() {
+    fn test_link_file_force_overwrites_existing() {
         let temp_dir = TempDir::new().unwrap();
         let source_path = temp_dir.path().join("source.txt");
         let target_path = temp_dir.path().join("target.txt");
@@ -212,7 +212,7 @@ mod tests {
         fs::write(&source_path, "source content").unwrap();
         fs::write(&target_path, "existing content").unwrap();
         
-        let atom = SymlinkFile {
+        let atom = LinkFile {
             source: source_path.clone(),
             target: target_path.clone(),
             force: true,
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_symlink_file_force_overwrites_existing_symlink() {
+    fn test_link_file_force_overwrites_existing_symlink() {
         let temp_dir = TempDir::new().unwrap();
         let source_path = temp_dir.path().join("source.txt");
         let old_target_path = temp_dir.path().join("old_target.txt");
@@ -242,7 +242,7 @@ mod tests {
         // Create existing symlink
         std::os::unix::fs::symlink(&old_target_path, &target_path).unwrap();
         
-        let atom = SymlinkFile {
+        let atom = LinkFile {
             source: source_path.clone(),
             target: target_path.clone(),
             force: true,

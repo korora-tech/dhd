@@ -1,12 +1,17 @@
-use dhd_macros::typescript_type;
+use dhd_macros::{typescript_type, typescript_fn};
 use std::path::{Path, PathBuf};
 use crate::atoms::AtomCompat;
 
 #[typescript_type]
 pub struct CopyFile {
     pub source: String,
-    pub destination: String,
-    pub requires_privilege_escalation: bool,
+    pub target: String,
+    pub escalate: bool,
+}
+
+#[typescript_fn]
+pub fn copy_file(config: CopyFile) -> crate::actions::ActionType {
+    crate::actions::ActionType::CopyFile(config)
 }
 
 impl crate::actions::Action for CopyFile {
@@ -21,18 +26,18 @@ impl crate::actions::Action for CopyFile {
             module_dir.join(&self.source)
         };
 
-        let destination_path = if self.destination.starts_with("~/") {
+        let target_path = if self.target.starts_with("~/") {
             let home = std::env::var("HOME").unwrap_or_else(|_| String::from("/home/user"));
-            PathBuf::from(self.destination.replacen("~/", &format!("{}/", home), 1))
+            PathBuf::from(self.target.replacen("~/", &format!("{}/", home), 1))
         } else {
-            PathBuf::from(&self.destination)
+            PathBuf::from(&self.target)
         };
 
         vec![Box::new(AtomCompat::new(
             Box::new(crate::atoms::copy_file::CopyFile::new(
                 source_path,
-                destination_path,
-                self.requires_privilege_escalation,
+                target_path,
+                self.escalate,
             )),
             "copy_file".to_string(),
         ))]

@@ -14,9 +14,9 @@ export default defineModule("atuin")
         packageInstall({
             names: ["atuin"],
         }),
-        linkDotfile({
-            from: "config.toml",
-            to: "atuin/config.toml",
+        linkFile({
+            source: "config.toml",
+            target: "atuin/config.toml",
             force: true,
         }),
         executeCommand({

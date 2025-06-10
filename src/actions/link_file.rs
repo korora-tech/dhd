@@ -30,48 +30,48 @@ fn resolve_xdg_target(target: &str) -> PathBuf {
 }
 
 #[typescript_type]
-/// Links a dotfile from the module to a target location
+/// Links a file from the module to a target location
 ///
-/// * `from` - Path to the source file, relative to the module directory
-/// * `to` - Target path where the symlink will be created
+/// * `source` - Path to the source file, relative to the module directory
+/// * `target` - Target path where the symlink will be created
 ///   - If absolute: used as-is
 ///   - If starts with `~/`: expanded to home directory
 ///   - If relative: resolved relative to XDG_CONFIG_HOME (usually ~/.config)
 /// * `force` - If true, creates parent directories and overwrites existing files
-pub struct LinkDotfile {
-    pub from: String,
-    pub to: String,
+pub struct LinkFile {
+    pub source: String,
+    pub target: String,
     pub force: bool,
 }
 
 #[typescript_fn]
-pub fn link_dotfile(config: LinkDotfile) -> super::ActionType {
-    super::ActionType::LinkDotfile(config)
+pub fn link_file(config: LinkFile) -> super::ActionType {
+    super::ActionType::LinkFile(config)
 }
 
-impl Action for LinkDotfile {
+impl Action for LinkFile {
     fn name(&self) -> &str {
-        "LinkDotfile"
+        "LinkFile"
     }
 
     fn plan(&self, module_dir: &std::path::Path) -> Vec<Box<dyn crate::atom::Atom>> {
-        // Resolve from path relative to module directory if it's not absolute
-        let from_path = if PathBuf::from(&self.from).is_absolute() {
-            PathBuf::from(&self.from)
+        // Resolve source path relative to module directory if it's not absolute
+        let source_path = if PathBuf::from(&self.source).is_absolute() {
+            PathBuf::from(&self.source)
         } else {
-            module_dir.join(&self.from)
+            module_dir.join(&self.source)
         };
 
-        // Resolve to path using XDG conventions
-        let to_path = resolve_xdg_target(&self.to);
+        // Resolve target path using XDG conventions
+        let target_path = resolve_xdg_target(&self.target);
 
         vec![Box::new(AtomCompat::new(
-            Box::new(crate::atoms::SymlinkFile {
-                source: from_path,
-                target: to_path,
+            Box::new(crate::atoms::link_file::LinkFile {
+                source: source_path,
+                target: target_path,
                 force: self.force,
             }),
-            "link_dotfile".to_string(),
+            "link_file".to_string(),
         ))]
     }
 }
@@ -82,52 +82,52 @@ mod tests {
     use crate::actions::ActionType;
 
     #[test]
-    fn test_link_dotfile_creation() {
-        let action = LinkDotfile {
-            from: "/home/user/.dotfiles/vimrc".to_string(),
-            to: "/home/user/.vimrc".to_string(),
+    fn test_link_file_creation() {
+        let action = LinkFile {
+            source: "/home/user/.dotfiles/vimrc".to_string(),
+            target: "/home/user/.vimrc".to_string(),
             force: false,
         };
 
-        assert_eq!(action.from, "/home/user/.dotfiles/vimrc");
-        assert_eq!(action.to, "/home/user/.vimrc");
+        assert_eq!(action.source, "/home/user/.dotfiles/vimrc");
+        assert_eq!(action.target, "/home/user/.vimrc");
         assert_eq!(action.force, false);
     }
 
     #[test]
-    fn test_link_dotfile_helper_function() {
-        let action = link_dotfile(LinkDotfile {
-            from: "source".to_string(),
-            to: "target".to_string(),
+    fn test_link_file_helper_function() {
+        let action = link_file(LinkFile {
+            source: "source".to_string(),
+            target: "target".to_string(),
             force: true,
         });
 
         match action {
-            ActionType::LinkDotfile(link) => {
-                assert_eq!(link.from, "source");
-                assert_eq!(link.to, "target");
+            ActionType::LinkFile(link) => {
+                assert_eq!(link.source, "source");
+                assert_eq!(link.target, "target");
                 assert_eq!(link.force, true);
             }
-            _ => panic!("Expected LinkDotfile action type"),
+            _ => panic!("Expected LinkFile action type"),
         }
     }
 
     #[test]
-    fn test_link_dotfile_name() {
-        let action = LinkDotfile {
-            from: "source".to_string(),
-            to: "target".to_string(),
+    fn test_link_file_name() {
+        let action = LinkFile {
+            source: "source".to_string(),
+            target: "target".to_string(),
             force: false,
         };
 
-        assert_eq!(action.name(), "LinkDotfile");
+        assert_eq!(action.name(), "LinkFile");
     }
 
     #[test]
-    fn test_link_dotfile_plan() {
-        let action = LinkDotfile {
-            from: "/source/path".to_string(),
-            to: "/target/path".to_string(),
+    fn test_link_file_plan() {
+        let action = LinkFile {
+            source: "/source/path".to_string(),
+            target: "/target/path".to_string(),
             force: false,
         };
 
@@ -138,12 +138,12 @@ mod tests {
     }
 
     #[test]
-    fn test_link_dotfile_plan_relative_path() {
+    fn test_link_file_plan_relative_path() {
         use std::path::Path;
 
-        let action = LinkDotfile {
-            from: "config.toml".to_string(),
-            to: "~/.config/app/config.toml".to_string(),
+        let action = LinkFile {
+            source: "config.toml".to_string(),
+            target: "~/.config/app/config.toml".to_string(),
             force: false,
         };
 
@@ -158,12 +158,12 @@ mod tests {
     }
 
     #[test]
-    fn test_link_dotfile_plan_absolute_path() {
+    fn test_link_file_plan_absolute_path() {
         use std::path::Path;
 
-        let action = LinkDotfile {
-            from: "/absolute/source/path".to_string(),
-            to: "~/.config/app/config.toml".to_string(),
+        let action = LinkFile {
+            source: "/absolute/source/path".to_string(),
+            target: "~/.config/app/config.toml".to_string(),
             force: false,
         };
 
@@ -201,12 +201,12 @@ mod tests {
     }
 
     #[test]
-    fn test_link_dotfile_xdg_integration() {
+    fn test_link_file_xdg_integration() {
         use std::path::Path;
 
-        let action = LinkDotfile {
-            from: "config.toml".to_string(),
-            to: "atuin/config.toml".to_string(), // Relative to XDG_CONFIG_HOME
+        let action = LinkFile {
+            source: "config.toml".to_string(),
+            target: "atuin/config.toml".to_string(), // Relative to XDG_CONFIG_HOME
             force: false,
         };
 
@@ -226,12 +226,12 @@ mod tests {
     }
 
     #[test]
-    fn test_link_dotfile_with_force() {
+    fn test_link_file_with_force() {
         use std::path::Path;
 
-        let action = LinkDotfile {
-            from: "config.toml".to_string(),
-            to: "atuin/config.toml".to_string(),
+        let action = LinkFile {
+            source: "config.toml".to_string(),
+            target: "atuin/config.toml".to_string(),
             force: true,
         };
 

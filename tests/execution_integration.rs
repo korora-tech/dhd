@@ -13,7 +13,7 @@ export default defineModule("test-exec")
     .tags("test")
     .actions([
         packageInstall({ names: ["test-package"] }),
-        linkDotfile({ from: "config", to: "~/.config/test" }),
+        linkFile({ source: "config", target: "~/.config/test" }),
         executeCommand({ command: "echo", args: ["test"] })
     ]);
 "#;
@@ -51,7 +51,7 @@ fn test_execution_with_specific_module() {
 export default defineModule("selected")
     .actions([
         packageInstall({ names: ["selected-pkg"] }),
-        linkDotfile({ from: "selected.conf", to: "~/.selected" })
+        linkFile({ source: "selected.conf", target: "~/.selected" })
     ]);
 "#;
     
@@ -59,7 +59,7 @@ export default defineModule("selected")
 export default defineModule("not-selected")
     .actions([
         packageInstall({ names: ["other-pkg"] }),
-        linkDotfile({ from: "other.conf", to: "~/.other" })
+        linkFile({ source: "other.conf", target: "~/.other" })
     ]);
 "#;
     
@@ -101,10 +101,10 @@ export default defineModule("priority-test")
         // These should be grouped by type in execution order
         executeCommand({ command: "echo", args: ["1"] }),
         packageInstall({ names: ["pkg1", "pkg2"] }),
-        linkDotfile({ from: "file1", to: "~/.file1" }),
+        linkFile({ source: "file1", target: "~/.file1" }),
         executeCommand({ command: "echo", args: ["2"] }),
         packageInstall({ names: ["pkg3"] }),
-        linkDotfile({ from: "file2", to: "~/.file2" })
+        linkFile({ source: "file2", target: "~/.file2" })
     ]);
 "#;
     

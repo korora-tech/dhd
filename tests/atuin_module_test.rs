@@ -14,9 +14,9 @@ export default defineModule("atuin")
         packageInstall({
             names: ["atuin"],
         }),
-        linkDotfile({
-            from: "config.toml",
-            to: "atuin/config.toml",
+        linkFile({
+            source: "config.toml",
+            target: "atuin/config.toml",
             force: true,
         }),
         executeCommand({
@@ -49,8 +49,8 @@ export default defineModule("test-flatten")
     .description("Test atom flattening")
     .actions([
         packageInstall({ names: ["pkg1", "pkg2", "pkg3"] }),
-        linkDotfile({ from: "config1", to: "~/.config1" }),
-        linkDotfile({ from: "config2", to: "~/.config2" }),
+        linkFile({ source: "config1", target: "~/.config1" }),
+        linkFile({ source: "config2", target: "~/.config2" }),
     ]);
 "#;
     

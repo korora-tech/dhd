@@ -1,7 +1,7 @@
 use std::fs;
 use crate::module::ModuleDefinition;
 use crate::discovery::DiscoveredModule;
-use crate::actions::{ActionType, PackageInstall, LinkDotfile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket};
+use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket};
 use crate::atoms::package::PackageManager;
 use oxc_allocator::Allocator;
 use oxc_parser::Parser;
@@ -230,17 +230,18 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                                 let manager = get_package_manager(obj, "manager");
                                 return Some(ActionType::PackageInstall(PackageInstall { names, manager }));
                             }
-                            "linkDotfile" => {
-                                let from = get_string_prop(obj, "from")?;
-                                let to = get_string_prop(obj, "to")?;
+                            "linkDotfile" | "linkFile" => {
+                                // Support both old linkDotfile and new linkFile names
+                                let source = get_string_prop(obj, "source").or_else(|| get_string_prop(obj, "from"))?;
+                                let target = get_string_prop(obj, "target").or_else(|| get_string_prop(obj, "to"))?;
                                 let force = get_bool_prop(obj, "force").unwrap_or(false);
-                                return Some(ActionType::LinkDotfile(LinkDotfile { from, to, force }));
+                                return Some(ActionType::LinkFile(LinkFile { source, target, force }));
                             }
                             "linkDirectory" => {
                                 let from = get_string_prop(obj, "from")?;
                                 let to = get_string_prop(obj, "to")?;
                                 let force = get_bool_prop(obj, "force").unwrap_or(false);
-                                return Some(ActionType::LinkDirectory(LinkDirectory { from, to, force }));
+                                return Some(ActionType::LinkDirectory(LinkDirectory { source: from, target: to, force }));
                             }
                             "executeCommand" => {
                                 let shell = get_string_prop(obj, "shell");
@@ -251,9 +252,9 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             }
                             "copyFile" => {
                                 let source = get_string_prop(obj, "source")?;
-                                let destination = get_string_prop(obj, "destination")?;
-                                let requires_privilege_escalation = get_bool_prop(obj, "requiresPrivilegeEscalation").unwrap_or(false);
-                                return Some(ActionType::CopyFile(CopyFile { source, destination, requires_privilege_escalation }));
+                                let target = get_string_prop(obj, "target").or_else(|| get_string_prop(obj, "destination"))?;
+                                let escalate = get_bool_prop(obj, "escalate").or_else(|| get_bool_prop(obj, "requiresPrivilegeEscalation")).unwrap_or(false);
+                                return Some(ActionType::CopyFile(CopyFile { source, target, escalate }));
                             }
                             "directory" => {
                                 let path = get_string_prop(obj, "path")?;
@@ -504,17 +505,17 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                     return Some(ActionType::PackageInstall(PackageInstall { names, manager }));
                 }
             }
-            Some("LinkDotfile") => {
-                let from = props.get("from").and_then(|v| v.as_str()).map(String::from)?;
-                let to = props.get("to").and_then(|v| v.as_str()).map(String::from)?;
+            Some("LinkFile") => {
+                let source = props.get("source").and_then(|v| v.as_str()).map(String::from)?;
+                let target = props.get("target").and_then(|v| v.as_str()).map(String::from)?;
                 let force = props.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
-                return Some(ActionType::LinkDotfile(LinkDotfile { from, to, force }));
+                return Some(ActionType::LinkFile(LinkFile { source, target, force }));
             }
             Some("LinkDirectory") => {
                 let from = props.get("from").and_then(|v| v.as_str()).map(String::from)?;
                 let to = props.get("to").and_then(|v| v.as_str()).map(String::from)?;
                 let force = props.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
-                return Some(ActionType::LinkDirectory(LinkDirectory { from, to, force }));
+                return Some(ActionType::LinkDirectory(LinkDirectory { source: from, target: to, force }));
             }
             Some("ExecuteCommand") => {
                 let shell = props.get("shell").and_then(|v| v.as_str()).map(String::from);
@@ -529,9 +530,9 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
             }
             Some("CopyFile") => {
                 let source = props.get("source").and_then(|v| v.as_str()).map(String::from)?;
-                let destination = props.get("destination").and_then(|v| v.as_str()).map(String::from)?;
-                let requires_privilege_escalation = props.get("requiresPrivilegeEscalation").and_then(|v| v.as_bool()).unwrap_or(false);
-                return Some(ActionType::CopyFile(CopyFile { source, destination, requires_privilege_escalation }));
+                let target = props.get("target").and_then(|v| v.as_str()).map(String::from)?;
+                let escalate = props.get("escalate").and_then(|v| v.as_bool()).unwrap_or(false);
+                return Some(ActionType::CopyFile(CopyFile { source, target, escalate }));
             }
             Some("Directory") => {
                 let path = props.get("path").and_then(|v| v.as_str()).map(String::from)?;
@@ -677,13 +678,13 @@ export default defineModule("nodesc")
     fn test_load_module_multiple_actions() {
         let temp_dir = TempDir::new().unwrap();
         let content = r#"
-import { defineModule, packageInstall, linkDotfile, executeCommand } from "./types";
+import { defineModule, packageInstall, linkFile, executeCommand } from "./types";
 
 export default defineModule("multi")
     .description("Multiple actions")
     .actions([
         packageInstall({ names: ["vim", "git"] }),
-        linkDotfile({ from: ".vimrc", to: "~/.vimrc" }),
+        linkFile({ source: ".vimrc", target: "~/.vimrc" }),
         executeCommand({ shell: "bash", command: "echo done" })
     ]);
 "#;

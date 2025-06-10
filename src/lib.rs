@@ -15,7 +15,7 @@ pub mod utils;
 
 // Re-export the main types users need
 pub use action::{Action as ActionTrait, PlatformSelect};
-pub use actions::{ActionType, PackageInstall, LinkDotfile, ExecuteCommand, Action};
+pub use actions::{ActionType, PackageInstall, LinkFile, ExecuteCommand, Action};
 pub use atom::Atom as AtomTrait;
 pub use dag_executor::{DagExecutor, ExecutionSummary};
 pub use dependency_resolver::{resolve_dependencies, DependencyError};

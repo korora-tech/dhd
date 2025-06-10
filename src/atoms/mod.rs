@@ -1,4 +1,4 @@
-pub mod symlink_file;
+pub mod link_file;
 pub mod install_packages;
 pub mod install_packages_v2;
 pub mod run_command;
@@ -10,7 +10,7 @@ pub mod systemd_socket;
 pub mod systemd_service;
 pub mod compat;
 
-pub use symlink_file::SymlinkFile;
+pub use link_file::LinkFile;
 pub use install_packages::InstallPackages;
 pub use run_command::RunCommand;
 pub use copy_file::CopyFile;

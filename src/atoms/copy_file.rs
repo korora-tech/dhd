@@ -6,16 +6,16 @@ use crate::atoms::Atom;
 #[derive(Debug, Clone)]
 pub struct CopyFile {
     pub source: PathBuf,
-    pub destination: PathBuf,
-    pub requires_privilege_escalation: bool,
+    pub target: PathBuf,
+    pub escalate: bool,
 }
 
 impl CopyFile {
-    pub fn new(source: PathBuf, destination: PathBuf, requires_privilege_escalation: bool) -> Self {
+    pub fn new(source: PathBuf, target: PathBuf, escalate: bool) -> Self {
         Self {
             source,
-            destination,
-            requires_privilege_escalation,
+            target,
+            escalate,
         }
     }
 }
@@ -32,9 +32,9 @@ impl Atom for CopyFile {
         }
 
         // Create parent directories if needed
-        if let Some(parent) = self.destination.parent() {
+        if let Some(parent) = self.target.parent() {
             if !parent.exists() {
-                if self.requires_privilege_escalation {
+                if self.escalate {
                     let output = Command::new("sudo")
                         .args(["mkdir", "-p", &parent.to_string_lossy()])
                         .output()
@@ -52,9 +52,9 @@ impl Atom for CopyFile {
         }
 
         // Copy the file
-        if self.requires_privilege_escalation {
+        if self.escalate {
             let output = Command::new("sudo")
-                .args(["cp", &self.source.to_string_lossy(), &self.destination.to_string_lossy()])
+                .args(["cp", &self.source.to_string_lossy(), &self.target.to_string_lossy()])
                 .output()
                 .map_err(|e| format!("Failed to copy file: {}", e))?;
             
@@ -63,15 +63,15 @@ impl Atom for CopyFile {
                     String::from_utf8_lossy(&output.stderr)));
             }
         } else {
-            fs::copy(&self.source, &self.destination)
+            fs::copy(&self.source, &self.target)
                 .map_err(|e| format!("Failed to copy {} to {}: {}", 
-                    self.source.display(), self.destination.display(), e))?;
+                    self.source.display(), self.target.display(), e))?;
         }
         
         Ok(())
     }
 
     fn describe(&self) -> String {
-        format!("Copy {} -> {}", self.source.display(), self.destination.display())
+        format!("Copy {} -> {}", self.source.display(), self.target.display())
     }
 }

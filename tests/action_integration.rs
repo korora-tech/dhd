@@ -1,4 +1,4 @@
-use dhd::actions::{ExecuteCommand, PackageInstall, LinkDotfile, Action};
+use dhd::actions::{ExecuteCommand, PackageInstall, LinkFile, Action};
 use dhd::atoms::package::PackageManager;
 use tempfile::TempDir;
 use std::fs;
@@ -91,7 +91,7 @@ fn test_package_install_auto_detect() {
 }
 
 #[test]
-fn test_link_dotfile_with_force() {
+fn test_link_file_with_force() {
     let temp_dir = TempDir::new().unwrap();
     let source = temp_dir.path().join("source.conf");
     let target = temp_dir.path().join("target.conf");
@@ -102,9 +102,9 @@ fn test_link_dotfile_with_force() {
     // Create an existing target that should be overwritten
     fs::write(&target, "old content").unwrap();
     
-    let action = LinkDotfile {
-        from: source.to_string_lossy().to_string(),
-        to: target.to_string_lossy().to_string(),
+    let action = LinkFile {
+        source: source.to_string_lossy().to_string(),
+        target: target.to_string_lossy().to_string(),
         force: true,
     };
     
@@ -135,9 +135,9 @@ fn test_complex_action_combination() {
             args: Some(vec!["enable".to_string(), "docker".to_string()]),
             escalate: true,
         }),
-        ActionType::LinkDotfile(LinkDotfile {
-            from: "docker-config.json".to_string(),
-            to: "~/.docker/config.json".to_string(),
+        ActionType::LinkFile(LinkFile {
+            source: "docker-config.json".to_string(),
+            target: "~/.docker/config.json".to_string(),
             force: false,
         }),
     ];
@@ -147,7 +147,7 @@ fn test_complex_action_combination() {
         let atoms = match action {
             ActionType::PackageInstall(a) => a.plan(std::path::Path::new(".")),
             ActionType::ExecuteCommand(a) => a.plan(std::path::Path::new(".")),
-            ActionType::LinkDotfile(a) => a.plan(std::path::Path::new(".")),
+            ActionType::LinkFile(a) => a.plan(std::path::Path::new(".")),
             ActionType::LinkDirectory(a) => a.plan(std::path::Path::new(".")),
             ActionType::CopyFile(a) => a.plan(std::path::Path::new(".")),
             ActionType::Directory(a) => a.plan(std::path::Path::new(".")),

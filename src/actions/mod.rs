@@ -2,7 +2,7 @@ use dhd_macros::typescript_enum;
 
 pub mod package_install;
 pub mod package_install_v2;
-pub mod link_dotfile;
+pub mod link_file;
 pub mod link_directory;
 pub mod execute_command;
 pub mod copy_file;
@@ -13,10 +13,10 @@ pub mod systemd_service;
 pub mod compat;
 
 pub use package_install::PackageInstall;
-pub use link_dotfile::{LinkDotfile, link_dotfile};
+pub use link_file::{LinkFile, link_file};
 pub use link_directory::{LinkDirectory, link_directory};
 pub use execute_command::ExecuteCommand;
-pub use copy_file::CopyFile;
+pub use copy_file::{CopyFile, copy_file};
 pub use directory::{Directory, directory};
 pub use http_download::{HttpDownload, http_download};
 pub use systemd_socket::{SystemdSocket, systemd_socket};
@@ -25,7 +25,7 @@ pub use systemd_service::{SystemdService, systemd_service};
 #[typescript_enum]
 pub enum ActionType {
     PackageInstall(PackageInstall),
-    LinkDotfile(LinkDotfile),
+    LinkFile(LinkFile),
     LinkDirectory(LinkDirectory),
     ExecuteCommand(ExecuteCommand),
     CopyFile(CopyFile),
@@ -44,7 +44,7 @@ impl Action for ActionType {
     fn name(&self) -> &str {
         match self {
             ActionType::PackageInstall(action) => action.name(),
-            ActionType::LinkDotfile(action) => action.name(),
+            ActionType::LinkFile(action) => action.name(),
             ActionType::LinkDirectory(action) => action.name(),
             ActionType::ExecuteCommand(action) => action.name(),
             ActionType::CopyFile(action) => action.name(),
@@ -58,7 +58,7 @@ impl Action for ActionType {
     fn plan(&self, module_dir: &std::path::Path) -> Vec<Box<dyn crate::atom::Atom>> {
         match self {
             ActionType::PackageInstall(action) => action.plan(module_dir),
-            ActionType::LinkDotfile(action) => action.plan(module_dir),
+            ActionType::LinkFile(action) => action.plan(module_dir),
             ActionType::LinkDirectory(action) => action.plan(module_dir),
             ActionType::ExecuteCommand(action) => action.plan(module_dir),
             ActionType::CopyFile(action) => action.plan(module_dir),
