@@ -151,7 +151,7 @@ fn list_modules() -> Result<(), String> {
 }
 
 fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<String>, all_tags: bool) -> Result<(), String> {
-    use dhd::{discover_modules, load_modules, ExecutionEngine, ExecutionMode};
+    use dhd::{discover_modules, load_modules, ExecutionEngine};
     use std::env;
 
     let current_dir = env::current_dir()
@@ -257,28 +257,18 @@ fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<St
     }
 
     // Execute modules
-    let mode = if dry_run {
-        ExecutionMode::DryRun
-    } else {
-        ExecutionMode::Execute
-    };
-
     println!(); // Add spacing before execution
-    let engine = ExecutionEngine::new(mode);
+    
+    // Use default concurrency (number of CPUs) for execution
+    let concurrency = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4); // Default to 4 if we can't determine CPU count
+    let engine = ExecutionEngine::new(concurrency, dry_run);
 
-    // Execute with dependency resolution
-    match engine.execute_modules_with_dependencies(filtered_modules) {
-        Ok(result) => {
-            // The execution engine already prints a detailed summary,
-            // so we just need to check for errors and exit codes
-            if result.failed > 0 {
-                return Err(format!("Execution failed: {} error(s) occurred", result.failed));
-            }
-            Ok(())
-        }
-        Err(dependency_error) => {
-            Err(format!("Dependency resolution failed: {}", dependency_error))
-        }
+    // Execute the modules
+    match engine.execute(filtered_modules) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Execution failed: {}", e))
     }
 }
 

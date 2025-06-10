@@ -1,7 +1,7 @@
 use std::fs;
 use crate::module::ModuleDefinition;
 use crate::discovery::DiscoveredModule;
-use crate::actions::{ActionType, PackageInstall, LinkDotfile, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket};
+use crate::actions::{ActionType, PackageInstall, LinkDotfile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket};
 use crate::atoms::package::PackageManager;
 use oxc_allocator::Allocator;
 use oxc_parser::Parser;
@@ -235,6 +235,12 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                                 let to = get_string_prop(obj, "to")?;
                                 let force = get_bool_prop(obj, "force").unwrap_or(false);
                                 return Some(ActionType::LinkDotfile(LinkDotfile { from, to, force }));
+                            }
+                            "linkDirectory" => {
+                                let from = get_string_prop(obj, "from")?;
+                                let to = get_string_prop(obj, "to")?;
+                                let force = get_bool_prop(obj, "force").unwrap_or(false);
+                                return Some(ActionType::LinkDirectory(LinkDirectory { from, to, force }));
                             }
                             "executeCommand" => {
                                 let shell = get_string_prop(obj, "shell");
@@ -503,6 +509,12 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                 let to = props.get("to").and_then(|v| v.as_str()).map(String::from)?;
                 let force = props.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
                 return Some(ActionType::LinkDotfile(LinkDotfile { from, to, force }));
+            }
+            Some("LinkDirectory") => {
+                let from = props.get("from").and_then(|v| v.as_str()).map(String::from)?;
+                let to = props.get("to").and_then(|v| v.as_str()).map(String::from)?;
+                let force = props.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
+                return Some(ActionType::LinkDirectory(LinkDirectory { from, to, force }));
             }
             Some("ExecuteCommand") => {
                 let shell = props.get("shell").and_then(|v| v.as_str()).map(String::from);
