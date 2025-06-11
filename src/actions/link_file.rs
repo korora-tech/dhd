@@ -1,8 +1,8 @@
-use dhd_macros::{typescript_fn, typescript_type};
 use super::Action;
-use std::path::PathBuf;
-use directories::BaseDirs;
 use crate::atoms::AtomCompat;
+use dhd_macros::{typescript_fn, typescript_type};
+use directories::BaseDirs;
+use std::path::PathBuf;
 
 /// Resolve XDG paths like relative config paths to their full locations
 fn resolve_xdg_target(target: &str) -> PathBuf {
@@ -154,7 +154,11 @@ mod tests {
         // Check that we got an atom
         assert_eq!(atoms.len(), 1);
         // The describe method should show the resolved path
-        assert!(atoms[0].describe().contains("/home/user/modules/app/config.toml"));
+        assert!(
+            atoms[0]
+                .describe()
+                .contains("/home/user/modules/app/config.toml")
+        );
     }
 
     #[test]

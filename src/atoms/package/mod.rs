@@ -1,5 +1,5 @@
-use std::process::Command;
 use dhd_macros::typescript_enum;
+use std::process::Command;
 
 pub mod apt;
 pub mod brew;
@@ -7,11 +7,11 @@ pub mod bun;
 pub mod cargo;
 pub mod dnf;
 pub mod flatpak;
+pub mod go;
 pub mod npm;
 pub mod pacman;
-pub mod snap;
-pub mod go;
 pub mod pip;
+pub mod snap;
 
 #[typescript_enum]
 pub enum PackageManager {

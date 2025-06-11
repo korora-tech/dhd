@@ -1,6 +1,6 @@
-use dhd_macros::{typescript_type, typescript_fn};
-use super::{Action, ActionType};
 use super::condition::Condition;
+use super::{Action, ActionType};
+use dhd_macros::{typescript_fn, typescript_type};
 use std::path::Path;
 
 /// A conditional wrapper action that executes a child action based on conditions
@@ -36,18 +36,18 @@ impl ConditionalAction {
         // Evaluate all conditions (AND logic by default)
         for condition in &self.conditions {
             let passed = condition.evaluate()?;
-            
+
             if !passed && !self.skip_on_success {
                 // For onlyIf, if any condition fails, we don't execute
                 return Ok(false);
             }
-            
+
             if passed && self.skip_on_success {
                 // For skipIf, if any condition passes, we skip
                 return Ok(false);
             }
         }
-        
+
         // All conditions evaluated
         // For skipIf: no conditions passed, so we execute (return true)
         // For onlyIf: all conditions passed, so we execute (return true)
@@ -66,31 +66,54 @@ impl Action for ConditionalAction {
                 let condition_desc = if self.conditions.len() == 1 {
                     self.conditions[0].describe()
                 } else {
-                    format!("all of: [{}]", 
-                        self.conditions.iter()
+                    format!(
+                        "all of: [{}]",
+                        self.conditions
+                            .iter()
                             .map(|c| c.describe())
                             .collect::<Vec<_>>()
-                            .join(", "))
+                            .join(", ")
+                    )
                 };
-                println!("Condition '{}' allows execution, running action '{}'", condition_desc, self.name());
+                println!(
+                    "Condition '{}' allows execution, running action '{}'",
+                    condition_desc,
+                    self.name()
+                );
                 self.action.plan(module_dir)
-            },
+            }
             Ok(false) => {
                 let condition_desc = if self.conditions.len() == 1 {
                     self.conditions[0].describe()
                 } else {
-                    format!("all of: [{}]", 
-                        self.conditions.iter()
+                    format!(
+                        "all of: [{}]",
+                        self.conditions
+                            .iter()
                             .map(|c| c.describe())
                             .collect::<Vec<_>>()
-                            .join(", "))
+                            .join(", ")
+                    )
                 };
-                let action_verb = if self.skip_on_success { "caused skip" } else { "not met" };
-                println!("Condition '{}' {}, skipping action '{}'", condition_desc, action_verb, self.name());
+                let action_verb = if self.skip_on_success {
+                    "caused skip"
+                } else {
+                    "not met"
+                };
+                println!(
+                    "Condition '{}' {}, skipping action '{}'",
+                    condition_desc,
+                    action_verb,
+                    self.name()
+                );
                 vec![]
-            },
+            }
             Err(e) => {
-                eprintln!("Error evaluating conditions for action '{}': {}", self.name(), e);
+                eprintln!(
+                    "Error evaluating conditions for action '{}': {}",
+                    self.name(),
+                    e
+                );
                 vec![]
             }
         }
@@ -99,7 +122,7 @@ impl Action for ConditionalAction {
 
 #[typescript_fn]
 /// Skip an action if the conditions pass
-/// 
+///
 /// Example:
 /// ```typescript
 /// skipIf(
@@ -113,7 +136,7 @@ pub fn skip_if(action: ActionType, conditions: Vec<Condition>) -> ActionType {
 
 #[typescript_fn]
 /// Only run an action if the conditions pass
-/// 
+///
 /// Example:
 /// ```typescript
 /// onlyIf(

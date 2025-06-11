@@ -1,7 +1,7 @@
-use dhd_macros::{typescript_fn, typescript_type};
 use crate::ActionType;
-use crate::atoms::package::PackageManager;
 use crate::atoms::AtomCompat;
+use crate::atoms::package::PackageManager;
+use dhd_macros::{typescript_fn, typescript_type};
 
 use super::Action;
 

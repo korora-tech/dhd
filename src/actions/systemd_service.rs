@@ -1,6 +1,6 @@
+use crate::atoms::AtomCompat;
 use dhd_macros::{typescript_fn, typescript_type};
 use std::path::Path;
-use crate::atoms::AtomCompat;
 
 #[typescript_type]
 pub struct SystemdService {

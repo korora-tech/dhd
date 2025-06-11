@@ -87,14 +87,14 @@ fn list_modules() -> Result<(), String> {
     use dhd::{discover_modules, load_modules};
     use std::env;
 
-    let current_dir = env::current_dir()
-        .map_err(|e| format!("Failed to get current directory: {}", e))?;
+    let current_dir =
+        env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
 
     // Discover modules with progress
     print!("● Discovering TypeScript modules...");
     std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    let discovered = discover_modules(&current_dir)
-        .map_err(|e| format!("Failed to discover modules: {}", e))?;
+    let discovered =
+        discover_modules(&current_dir).map_err(|e| format!("Failed to discover modules: {}", e))?;
     println!(" found {}", discovered.len());
 
     if discovered.is_empty() {
@@ -118,10 +118,16 @@ fn list_modules() -> Result<(), String> {
 
     // Show loaded modules with their actual names
     if !loaded_modules.is_empty() {
-        println!("Found {} TypeScript module(s):", loaded_modules.len() + failed_modules.len());
+        println!(
+            "Found {} TypeScript module(s):",
+            loaded_modules.len() + failed_modules.len()
+        );
         for module in &loaded_modules {
             if let Some(relative) = module.source.relative_path(&current_dir) {
-                let description = module.definition.description.as_ref()
+                let description = module
+                    .definition
+                    .description
+                    .as_ref()
                     .map(|d| format!(" - {}", d))
                     .unwrap_or_default();
                 let tags = if module.definition.tags.is_empty() {
@@ -129,7 +135,13 @@ fn list_modules() -> Result<(), String> {
                 } else {
                     format!(" [{}]", module.definition.tags.join(", "))
                 };
-                println!("  - {} ({}){}{}", module.definition.name, relative.display(), tags, description);
+                println!(
+                    "  - {} ({}){}{}",
+                    module.definition.name,
+                    relative.display(),
+                    tags,
+                    description
+                );
             }
         }
     }
@@ -150,18 +162,23 @@ fn list_modules() -> Result<(), String> {
     Ok(())
 }
 
-fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<String>, all_tags: bool) -> Result<(), String> {
-    use dhd::{discover_modules, load_modules, ExecutionEngine};
+fn apply_modules(
+    dry_run: bool,
+    module_filters: Vec<String>,
+    tag_filters: Vec<String>,
+    all_tags: bool,
+) -> Result<(), String> {
+    use dhd::{ExecutionEngine, discover_modules, load_modules};
     use std::env;
 
-    let current_dir = env::current_dir()
-        .map_err(|e| format!("Failed to get current directory: {}", e))?;
+    let current_dir =
+        env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
 
     // Discover all modules with progress
     print!("● Discovering TypeScript modules...");
     std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    let discovered = discover_modules(&current_dir)
-        .map_err(|e| format!("Failed to discover modules: {}", e))?;
+    let discovered =
+        discover_modules(&current_dir).map_err(|e| format!("Failed to discover modules: {}", e))?;
     println!(" found {}", discovered.len());
 
     if discovered.is_empty() {
@@ -187,7 +204,10 @@ fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<St
     }
 
     if loaded_modules.is_empty() {
-        return Err(format!("No modules could be loaded ({} failed)", failed_count));
+        return Err(format!(
+            "No modules could be loaded ({} failed)",
+            failed_count
+        ));
     }
 
     if failed_count > 0 {
@@ -195,21 +215,26 @@ fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<St
     }
 
     // Filter modules by their actual names and tags
-    let filtered_modules = loaded_modules.into_iter()
+    let filtered_modules = loaded_modules
+        .into_iter()
         .filter(|module| {
             // Check module name filter
-            let name_match = module_filters.is_empty() ||
-                module_filters.contains(&module.definition.name);
+            let name_match =
+                module_filters.is_empty() || module_filters.contains(&module.definition.name);
 
             // Check tag filter
             let tag_match = if tag_filters.is_empty() {
                 true
             } else if all_tags {
                 // Module must have ALL specified tags
-                tag_filters.iter().all(|tag| module.definition.tags.contains(tag))
+                tag_filters
+                    .iter()
+                    .all(|tag| module.definition.tags.contains(tag))
             } else {
                 // Module must have AT LEAST ONE of the specified tags
-                tag_filters.iter().any(|tag| module.definition.tags.contains(tag))
+                tag_filters
+                    .iter()
+                    .any(|tag| module.definition.tags.contains(tag))
             };
 
             name_match && tag_match
@@ -228,16 +253,25 @@ fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<St
                 let tag_op = if all_tags { "all of" } else { "any of" };
                 filters.push(format!("tags ({}): {}", tag_op, tag_filters.join(", ")));
             }
-            println!("ℹ️  No modules matched the specified filters: {}", filters.join("; "));
+            println!(
+                "ℹ️  No modules matched the specified filters: {}",
+                filters.join("; ")
+            );
         }
         return Ok(());
     }
 
     // Show selected modules
-    println!("\n● Selected modules for {}:", if dry_run { "dry run" } else { "execution" });
+    println!(
+        "\n● Selected modules for {}:",
+        if dry_run { "dry run" } else { "execution" }
+    );
     for (idx, module) in filtered_modules.iter().enumerate() {
         let action_count = module.definition.actions.len();
-        let description = module.definition.description.as_ref()
+        let description = module
+            .definition
+            .description
+            .as_ref()
             .map(|d| format!(" - {}", d))
             .unwrap_or_default();
         let tags = if module.definition.tags.is_empty() {
@@ -245,8 +279,13 @@ fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<St
         } else {
             format!(" [{}]", module.definition.tags.join(", "))
         };
-        let prefix = if idx == filtered_modules.len() - 1 { "  ⎿" } else { "  ├" };
-        println!("{} {} ({} action{}){}{}",
+        let prefix = if idx == filtered_modules.len() - 1 {
+            "  ⎿"
+        } else {
+            "  ├"
+        };
+        println!(
+            "{} {} ({} action{}){}{}",
             prefix,
             module.definition.name,
             action_count,
@@ -258,7 +297,7 @@ fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<St
 
     // Execute modules
     println!(); // Add spacing before execution
-    
+
     // Use default concurrency (number of CPUs) for execution
     let concurrency = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -268,7 +307,7 @@ fn apply_modules(dry_run: bool, module_filters: Vec<String>, tag_filters: Vec<St
     // Execute the modules
     match engine.execute(filtered_modules) {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("Execution failed: {}", e))
+        Err(e) => Err(format!("Execution failed: {}", e)),
     }
 }
 
@@ -276,23 +315,26 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Generate { generate_command } => {
-            match generate_command {
-                GenerateCommands::Types => {
-                    if let Err(e) = generate_types() {
-                        eprintln!("Error: {}", e);
-                        std::process::exit(1);
-                    }
+        Commands::Generate { generate_command } => match generate_command {
+            GenerateCommands::Types => {
+                if let Err(e) = generate_types() {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
                 }
             }
-        }
+        },
         Commands::List => {
             if let Err(e) = list_modules() {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
             }
         }
-        Commands::Apply { dry_run, module, tag, all_tags } => {
+        Commands::Apply {
+            dry_run,
+            module,
+            tag,
+            all_tags,
+        } => {
             if let Err(e) = apply_modules(dry_run, module, tag, all_tags) {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);

@@ -1,5 +1,5 @@
-use std::process::Command;
 use crate::atoms::Atom;
+use std::process::Command;
 
 #[derive(Debug, Clone)]
 pub struct InstallGnomeExtension {
@@ -23,9 +23,12 @@ impl Atom for InstallGnomeExtension {
             .arg("gext")
             .output()
             .map_err(|e| format!("Failed to check for gext: {}", e))?;
-        
+
         if !check.status.success() {
-            return Err("gnome-extensions-cli (gext) is not installed. Please install it first.".to_string());
+            return Err(
+                "gnome-extensions-cli (gext) is not installed. Please install it first."
+                    .to_string(),
+            );
         }
 
         // Install the extension
@@ -41,8 +44,10 @@ impl Atom for InstallGnomeExtension {
                 println!("Extension {} is already installed", self.extension_id);
                 return Ok(());
             }
-            return Err(format!("Failed to install GNOME extension {}: {}",
-                self.extension_id, stderr));
+            return Err(format!(
+                "Failed to install GNOME extension {}: {}",
+                self.extension_id, stderr
+            ));
         }
 
         // Enable the extension
@@ -52,8 +57,11 @@ impl Atom for InstallGnomeExtension {
             .map_err(|e| format!("Failed to execute gext enable: {}", e))?;
 
         if !enable_output.status.success() {
-            eprintln!("Warning: Extension {} installed but could not be enabled: {}",
-                self.extension_id, String::from_utf8_lossy(&enable_output.stderr));
+            eprintln!(
+                "Warning: Extension {} installed but could not be enabled: {}",
+                self.extension_id,
+                String::from_utf8_lossy(&enable_output.stderr)
+            );
         }
 
         Ok(())

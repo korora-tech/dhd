@@ -42,7 +42,7 @@ fn detect_linux_distro() -> LinuxDistro {
             .find(|line| line.starts_with("ID="))
             .and_then(|line| line.split('=').nth(1))
             .map(|s| s.trim_matches('"'));
-        
+
         match id {
             Some("ubuntu") => LinuxDistro::Ubuntu,
             Some("debian") => LinuxDistro::Debian,

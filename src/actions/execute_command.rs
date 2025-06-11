@@ -1,6 +1,6 @@
-use dhd_macros::{typescript_fn, typescript_type};
 use crate::ActionType;
 use crate::atoms::AtomCompat;
+use dhd_macros::{typescript_fn, typescript_type};
 
 use super::Action;
 
@@ -148,7 +148,7 @@ mod tests {
             let atoms = action.plan(std::path::Path::new("."));
             assert_eq!(atoms.len(), 1);
             // Check that we got an atom
-        assert_eq!(atoms.len(), 1);
+            assert_eq!(atoms.len(), 1);
         }
     }
 

@@ -1,5 +1,5 @@
 use dhd_macros::{typescript_enum, typescript_fn};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Represents different types of conditions that can be evaluated
 #[derive(Serialize, Deserialize)]
@@ -10,7 +10,10 @@ pub enum Condition {
     /// Check if a directory exists
     DirectoryExists { path: String },
     /// Check if a command succeeds
-    CommandSucceeds { command: String, args: Option<Vec<String>> },
+    CommandSucceeds {
+        command: String,
+        args: Option<Vec<String>>,
+    },
     /// Check environment variable
     EnvironmentVariable { name: String, value: Option<String> },
     /// All conditions must pass
@@ -33,16 +36,16 @@ impl Condition {
             }
             Condition::CommandSucceeds { command, args } => {
                 use std::process::Command;
-                
+
                 let mut cmd = Command::new("sh");
                 cmd.arg("-c");
-                
+
                 if let Some(args) = args {
                     cmd.arg(&format!("{} {}", command, args.join(" ")));
                 } else {
                     cmd.arg(command);
                 }
-                
+
                 match cmd.output() {
                     Ok(output) => Ok(output.status.success()),
                     Err(e) => Err(format!("Failed to execute command: {}", e)),
@@ -76,9 +79,7 @@ impl Condition {
                 }
                 Ok(false)
             }
-            Condition::Not { condition } => {
-                Ok(!condition.evaluate()?)
-            }
+            Condition::Not { condition } => Ok(!condition.evaluate()?),
         }
     }
 
@@ -147,5 +148,7 @@ pub fn any_of(conditions: Vec<Condition>) -> Condition {
 
 #[typescript_fn]
 pub fn not(condition: Condition) -> Condition {
-    Condition::Not { condition: Box::new(condition) }
+    Condition::Not {
+        condition: Box::new(condition),
+    }
 }
