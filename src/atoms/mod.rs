@@ -12,6 +12,7 @@ pub mod compat;
 pub mod dconf_import;
 pub mod gnome_extension;
 pub mod remove_packages;
+pub mod systemd_manage;
 
 pub use link_file::LinkFile;
 pub use install_packages::InstallPackages;

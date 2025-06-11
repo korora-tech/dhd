@@ -1,7 +1,7 @@
 use std::fs;
 use crate::module::ModuleDefinition;
 use crate::discovery::DiscoveredModule;
-use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket, DconfImport, InstallGnomeExtensions, PackageRemove};
+use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket, DconfImport, InstallGnomeExtensions, PackageRemove, SystemdManage};
 use crate::atoms::package::PackageManager;
 use oxc_allocator::Allocator;
 use oxc_parser::Parser;
@@ -284,6 +284,12 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                                 let listen_stream = get_string_prop(obj, "listenStream")?;
                                 let scope = get_string_prop(obj, "scope")?;
                                 return Some(ActionType::SystemdSocket(SystemdSocket { name, description, listen_stream, scope }));
+                            }
+                            "systemdManage" => {
+                                let name = get_string_prop(obj, "name")?;
+                                let operation = get_string_prop(obj, "operation")?;
+                                let scope = get_string_prop(obj, "scope")?;
+                                return Some(ActionType::SystemdManage(SystemdManage { name, operation, scope }));
                             }
                             _ => {}
                         }
@@ -586,6 +592,12 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                         .and_then(|s| crate::atoms::package::PackageManager::from_str(s));
                     return Some(ActionType::PackageRemove(PackageRemove { names, manager }));
                 }
+            }
+            Some("SystemdManage") => {
+                let name = props.get("name").and_then(|v| v.as_str()).map(String::from)?;
+                let operation = props.get("operation").and_then(|v| v.as_str()).map(String::from)?;
+                let scope = props.get("scope").and_then(|v| v.as_str()).map(String::from)?;
+                return Some(ActionType::SystemdManage(SystemdManage { name, operation, scope }));
             }
             _ => {}
         }
