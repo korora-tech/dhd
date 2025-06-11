@@ -122,7 +122,7 @@ mod tests {
 
         assert_eq!(git_config.entries.len(), 1);
         assert_eq!(git_config.scope, GitConfigScope::Global);
-        assert_eq!(git_config.unset, false);
+        assert!(!git_config.unset);
     }
 
     #[test]

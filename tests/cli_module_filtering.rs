@@ -34,18 +34,12 @@ export default defineModule("atuin")
 
     // Simulate CLI loading
     let load_results = load_modules(discovered.clone());
-    let mut loaded_modules = Vec::new();
-
-    for result in load_results {
-        if let Ok(loaded) = result {
-            loaded_modules.push(loaded);
-        }
-    }
+    let loaded_modules: Vec<_> = load_results.into_iter().flatten().collect();
 
     assert_eq!(loaded_modules.len(), 1);
 
     // Simulate CLI filtering with module name "atuin"
-    let module_filters = vec!["atuin".to_string()];
+    let module_filters = ["atuin".to_string()].to_vec();
     let tag_filters: Vec<String> = vec![];
 
     let filtered_modules = loaded_modules
@@ -172,7 +166,7 @@ export default defineModule("mixed")
 
     // Filter by "dev" tag
     let module_filters: Vec<String> = vec![];
-    let tag_filters = vec!["dev".to_string()];
+    let tag_filters = ["dev".to_string()].to_vec();
 
     let filtered_modules = loaded_modules
         .into_iter()
@@ -239,8 +233,8 @@ export default defineModule("app3")
     let loaded_modules: Vec<_> = load_results.into_iter().filter_map(|r| r.ok()).collect();
 
     // Filter by module name "app1" and tag "web" - should only get app1
-    let module_filters = vec!["app1".to_string()];
-    let tag_filters = vec!["web".to_string()];
+    let module_filters = ["app1".to_string()].to_vec();
+    let tag_filters = ["web".to_string()].to_vec();
 
     let filtered_modules = loaded_modules
         .into_iter()

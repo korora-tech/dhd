@@ -91,7 +91,7 @@ mod tests {
 
         assert_eq!(action.source, "/home/user/.dotfiles/config");
         assert_eq!(action.target, "/home/user/.config/app");
-        assert_eq!(action.force, false);
+        assert!(!action.force);
     }
 
     #[test]
@@ -106,7 +106,7 @@ mod tests {
             ActionType::LinkDirectory(link) => {
                 assert_eq!(link.source, "configs/app");
                 assert_eq!(link.target, "app");
-                assert_eq!(link.force, true);
+                assert!(link.force);
             }
             _ => panic!("Expected LinkDirectory action type"),
         }

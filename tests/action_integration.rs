@@ -18,7 +18,7 @@ fn test_execute_command_with_args_and_escalate() {
         action.args,
         Some(vec!["status".to_string(), "docker".to_string()])
     );
-    assert_eq!(action.escalate, true);
+    assert!(action.escalate);
 
     // Test planning
     let atoms = action.plan(std::path::Path::new("."));
@@ -113,7 +113,7 @@ fn test_link_file_with_force() {
         force: true,
     };
 
-    let atoms = action.plan(&temp_dir.path());
+    let atoms = action.plan(temp_dir.path());
     assert_eq!(atoms.len(), 1);
 
     // Execute the atom
