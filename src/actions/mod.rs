@@ -13,6 +13,9 @@ pub mod systemd_service;
 pub mod compat;
 pub mod conditional;
 pub mod condition;
+pub mod dconf_import;
+pub mod gnome_extensions;
+pub mod package_remove;
 
 pub use package_install::PackageInstall;
 pub use link_file::{LinkFile, link_file};
@@ -29,6 +32,9 @@ pub use condition::{
     file_exists, directory_exists, command_succeeds, env_var,
     all_of, any_of, not
 };
+pub use dconf_import::{DconfImport, dconf_import};
+pub use gnome_extensions::{InstallGnomeExtensions, install_gnome_extensions};
+pub use package_remove::{PackageRemove, package_remove};
 
 #[typescript_enum]
 pub enum ActionType {
@@ -42,6 +48,9 @@ pub enum ActionType {
     SystemdSocket(SystemdSocket),
     SystemdService(SystemdService),
     Conditional(ConditionalAction),
+    DconfImport(DconfImport),
+    InstallGnomeExtensions(InstallGnomeExtensions),
+    PackageRemove(PackageRemove),
 }
 
 pub trait Action {
@@ -62,6 +71,9 @@ impl Action for ActionType {
             ActionType::SystemdSocket(action) => action.name(),
             ActionType::SystemdService(action) => action.name(),
             ActionType::Conditional(action) => action.name(),
+            ActionType::DconfImport(action) => action.name(),
+            ActionType::InstallGnomeExtensions(action) => action.name(),
+            ActionType::PackageRemove(action) => action.name(),
         }
     }
 
@@ -77,6 +89,9 @@ impl Action for ActionType {
             ActionType::SystemdSocket(action) => action.plan(module_dir),
             ActionType::SystemdService(action) => action.plan(module_dir),
             ActionType::Conditional(action) => action.plan(module_dir),
+            ActionType::DconfImport(action) => action.plan(module_dir),
+            ActionType::InstallGnomeExtensions(action) => action.plan(module_dir),
+            ActionType::PackageRemove(action) => action.plan(module_dir),
         }
     }
 }

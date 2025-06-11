@@ -1,7 +1,7 @@
 use std::fs;
 use crate::module::ModuleDefinition;
 use crate::discovery::DiscoveredModule;
-use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket};
+use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket, DconfImport, InstallGnomeExtensions, PackageRemove};
 use crate::atoms::package::PackageManager;
 use oxc_allocator::Allocator;
 use oxc_parser::Parser;
@@ -562,6 +562,30 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                 let listen_stream = props.get("listenStream").and_then(|v| v.as_str()).map(String::from)?;
                 let scope = props.get("scope").and_then(|v| v.as_str()).map(String::from)?;
                 return Some(ActionType::SystemdSocket(SystemdSocket { name, description, listen_stream, scope }));
+            }
+            Some("DconfImport") => {
+                let source = props.get("source").and_then(|v| v.as_str()).map(String::from)?;
+                let path = props.get("path").and_then(|v| v.as_str()).map(String::from)?;
+                return Some(ActionType::DconfImport(DconfImport { source, path }));
+            }
+            Some("InstallGnomeExtensions") => {
+                if let Some(serde_json::Value::Array(extensions)) = props.get("extensions") {
+                    let extensions: Vec<String> = extensions.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
+                    return Some(ActionType::InstallGnomeExtensions(InstallGnomeExtensions { extensions }));
+                }
+            }
+            Some("PackageRemove") => {
+                if let Some(serde_json::Value::Array(names)) = props.get("names") {
+                    let names: Vec<String> = names.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
+                    let manager = props.get("manager")
+                        .and_then(|v| v.as_str())
+                        .and_then(|s| crate::atoms::package::PackageManager::from_str(s));
+                    return Some(ActionType::PackageRemove(PackageRemove { names, manager }));
+                }
             }
             _ => {}
         }

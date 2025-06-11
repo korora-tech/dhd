@@ -9,6 +9,9 @@ pub mod http_download;
 pub mod systemd_socket;
 pub mod systemd_service;
 pub mod compat;
+pub mod dconf_import;
+pub mod gnome_extension;
+pub mod remove_packages;
 
 pub use link_file::LinkFile;
 pub use install_packages::InstallPackages;
