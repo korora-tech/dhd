@@ -27,40 +27,15 @@ export default defineConfig({
 					],
 				},
 				{
-					label: 'Core Concepts',
+					label: 'Guides',
 					items: [
-						{ label: 'Modules', slug: 'concepts/modules' },
-						{ label: 'Actions', slug: 'concepts/actions' },
-						{ label: 'Platform Detection', slug: 'concepts/platform-detection' },
-						{ label: 'Execution Model', slug: 'concepts/execution-model' },
+						{ label: 'Example Guide', slug: 'guides/example' },
 					],
 				},
 				{
-					label: 'Action Reference',
-					autogenerate: { directory: 'reference/actions' },
-				},
-				{
-					label: 'Examples',
+					label: 'Reference',
 					items: [
-						{ label: 'Dotfiles Management', slug: 'examples/dotfiles' },
-						{ label: 'Development Environment', slug: 'examples/dev-environment' },
-						{ label: 'System Services', slug: 'examples/system-services' },
-						{ label: 'Desktop Configuration', slug: 'examples/desktop-config' },
-					],
-				},
-				{
-					label: 'CLI Reference',
-					items: [
-						{ label: 'Commands', slug: 'cli/commands' },
-						{ label: 'Configuration', slug: 'cli/configuration' },
-					],
-				},
-				{
-					label: 'Advanced',
-					items: [
-						{ label: 'Architecture', slug: 'advanced/architecture' },
-						{ label: 'Writing Custom Actions', slug: 'advanced/custom-actions' },
-						{ label: 'Contributing', slug: 'advanced/contributing' },
+						{ label: 'Example Reference', slug: 'reference/example' },
 					],
 				},
 			],
