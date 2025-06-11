@@ -1,4 +1,4 @@
-use dhd::{discover_modules, load_modules, ExecutionEngine};
+use dhd::{ExecutionEngine, discover_modules, load_modules};
 use std::fs;
 use tempfile::TempDir;
 
@@ -48,7 +48,7 @@ export default defineModule("test-module")
     // Create execution engine and run in dry mode
     let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
     let result = engine.execute(successful_modules);
-    
+
     assert!(result.is_ok(), "Dry run execution should succeed");
 }
 
@@ -143,8 +143,9 @@ export default defineModule("common-setup")
         .collect();
 
     assert_eq!(dev_modules.len(), 2, "Should have 2 modules with 'dev' tag");
-    
-    let names: Vec<&str> = dev_modules.iter()
+
+    let names: Vec<&str> = dev_modules
+        .iter()
         .map(|m| m.definition.name.as_str())
         .collect();
     assert!(names.contains(&"dev-setup"));
@@ -201,12 +202,15 @@ export default defineModule("special-other")
     let selected: Vec<_> = all_modules
         .into_iter()
         .filter(|m| {
-            m.definition.name.contains("special") && 
-            m.definition.tags.contains(&"test".to_string())
+            m.definition.name.contains("special") && m.definition.tags.contains(&"test".to_string())
         })
         .collect();
 
-    assert_eq!(selected.len(), 1, "Only one module should match both criteria");
+    assert_eq!(
+        selected.len(),
+        1,
+        "Only one module should match both criteria"
+    );
     assert_eq!(selected[0].definition.name, "special-module");
     assert_eq!(selected[0].definition.actions.len(), 3);
 
