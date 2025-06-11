@@ -258,8 +258,8 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             }
                             "directory" => {
                                 let path = get_string_prop(obj, "path")?;
-                                let requires_privilege_escalation = get_bool_prop(obj, "requiresPrivilegeEscalation");
-                                return Some(ActionType::Directory(Directory { path, requires_privilege_escalation }));
+                                let escalate = get_bool_prop(obj, "escalate");
+                                return Some(ActionType::Directory(Directory { path, escalate }));
                             }
                             "httpDownload" => {
                                 let url = get_string_prop(obj, "url")?;
@@ -536,8 +536,8 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
             }
             Some("Directory") => {
                 let path = props.get("path").and_then(|v| v.as_str()).map(String::from)?;
-                let requires_privilege_escalation = props.get("requiresPrivilegeEscalation").and_then(|v| v.as_bool());
-                return Some(ActionType::Directory(Directory { path, requires_privilege_escalation }));
+                let escalate = props.get("escalate").and_then(|v| v.as_bool());
+                return Some(ActionType::Directory(Directory { path, escalate }));
             }
             Some("HttpDownload") => {
                 let url = props.get("url").and_then(|v| v.as_str()).map(String::from)?;

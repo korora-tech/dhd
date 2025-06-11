@@ -6,7 +6,7 @@ use crate::atoms::AtomCompat;
 #[typescript_type]
 pub struct Directory {
     pub path: String,
-    pub requires_privilege_escalation: Option<bool>,
+    pub escalate: Option<bool>,
 }
 
 impl crate::actions::Action for Directory {
@@ -25,7 +25,7 @@ impl crate::actions::Action for Directory {
         vec![Box::new(AtomCompat::new(
             Box::new(crate::atoms::create_directory::CreateDirectory::new(
                 directory_path,
-                self.requires_privilege_escalation.unwrap_or(false),
+                self.escalate.unwrap_or(false),
             )),
             "directory".to_string(),
         ))]
@@ -46,24 +46,24 @@ mod tests {
     fn test_directory_creation() {
         let action = Directory {
             path: "/tmp/test".to_string(),
-            requires_privilege_escalation: Some(false),
+            escalate: Some(false),
         };
 
         assert_eq!(action.path, "/tmp/test");
-        assert_eq!(action.requires_privilege_escalation, Some(false));
+        assert_eq!(action.escalate, Some(false));
     }
 
     #[test]
     fn test_directory_helper_function() {
         let action = directory(Directory {
             path: "/home/user/.config".to_string(),
-            requires_privilege_escalation: None,
+            escalate: None,
         });
 
         match action {
             crate::actions::ActionType::Directory(dir) => {
                 assert_eq!(dir.path, "/home/user/.config");
-                assert_eq!(dir.requires_privilege_escalation, None);
+                assert_eq!(dir.escalate, None);
             }
             _ => panic!("Expected Directory action type"),
         }
@@ -73,7 +73,7 @@ mod tests {
     fn test_directory_name() {
         let action = Directory {
             path: "/tmp/test".to_string(),
-            requires_privilege_escalation: None,
+            escalate: None,
         };
 
         assert_eq!(action.name(), "Directory");
@@ -83,7 +83,7 @@ mod tests {
     fn test_directory_plan() {
         let action = Directory {
             path: "/tmp/test".to_string(),
-            requires_privilege_escalation: None,
+            escalate: None,
         };
 
         let atoms = action.plan(std::path::Path::new("."));
@@ -96,10 +96,10 @@ mod tests {
     fn test_directory_with_privilege_escalation() {
         let action = Directory {
             path: "/etc/test".to_string(),
-            requires_privilege_escalation: Some(true),
+            escalate: Some(true),
         };
 
-        assert_eq!(action.requires_privilege_escalation, Some(true));
+        assert_eq!(action.escalate, Some(true));
 
         let atoms = action.plan(std::path::Path::new("."));
         assert_eq!(atoms.len(), 1);
@@ -111,7 +111,7 @@ mod tests {
 
         let action = Directory {
             path: "~/test".to_string(),
-            requires_privilege_escalation: None,
+            escalate: None,
         };
 
         let atoms = action.plan(std::path::Path::new("."));
