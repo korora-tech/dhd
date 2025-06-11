@@ -35,10 +35,10 @@ export default defineModule("test-exec")
     // Verify module was loaded correctly
     assert_eq!(successful_modules[0].definition.name, "test-exec");
     assert_eq!(successful_modules[0].definition.actions.len(), 3);
-    
+
     // Create execution engine with dry run
     let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
-    
+
     // In dry run mode, execute should succeed without actually running commands
     let result = engine.execute(successful_modules);
     assert!(result.is_ok(), "Dry run execution should succeed");
@@ -180,7 +180,7 @@ export default defineModule("app")
 
     // In a real implementation, dependency resolution would ensure base is executed first
     assert_eq!(app_module.definition.dependencies, vec!["base"]);
-    
+
     let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
     let result = engine.execute(successful_modules);
     assert!(result.is_ok(), "Execution with dependencies should succeed");

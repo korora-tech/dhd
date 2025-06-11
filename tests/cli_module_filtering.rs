@@ -1,4 +1,4 @@
-use dhd::{discover_modules, load_modules, ExecutionEngine};
+use dhd::{ExecutionEngine, discover_modules, load_modules};
 use std::fs;
 use tempfile::TempDir;
 
@@ -187,9 +187,14 @@ export default defineModule("mixed")
         })
         .collect::<Vec<_>>();
 
-    assert_eq!(filtered_modules.len(), 2, "Should include dev and mixed modules");
-    
-    let names: Vec<&str> = filtered_modules.iter()
+    assert_eq!(
+        filtered_modules.len(),
+        2,
+        "Should include dev and mixed modules"
+    );
+
+    let names: Vec<&str> = filtered_modules
+        .iter()
         .map(|m| m.definition.name.as_str())
         .collect();
     assert!(names.contains(&"dev-tools"));

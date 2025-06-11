@@ -1,4 +1,4 @@
-use dhd::{discover_modules, load_modules, ExecutionEngine};
+use dhd::{ExecutionEngine, discover_modules, load_modules};
 use std::fs;
 use tempfile::TempDir;
 
@@ -145,16 +145,19 @@ export default defineModule("atuin")
 
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    
+
     // Should have one result
     assert_eq!(loaded.len(), 1);
-    
+
     // Check if it's an error or if the loader handles unknown actions gracefully
     match &loaded[0] {
         Ok(module) => {
             // If it loads successfully, the module should have no valid actions
             // since notAnAction is not recognized
-            println!("Module loaded with {} actions", module.definition.actions.len());
+            println!(
+                "Module loaded with {} actions",
+                module.definition.actions.len()
+            );
             // This is acceptable - the loader may ignore unknown actions
         }
         Err(e) => {
