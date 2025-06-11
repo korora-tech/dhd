@@ -1,5 +1,6 @@
 use dhd_macros::typescript_enum;
 use std::process::Command;
+use std::str::FromStr;
 
 pub mod apt;
 pub mod brew;
@@ -63,27 +64,32 @@ pub trait PackageProvider: Send + Sync {
     fn install_command(&self) -> Vec<String>;
 }
 
-impl PackageManager {
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for PackageManager {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "apt" => Some(PackageManager::Apt),
-            "brew" => Some(PackageManager::Brew),
-            "bun" => Some(PackageManager::Bun),
-            "cargo" => Some(PackageManager::Cargo),
-            "dnf" => Some(PackageManager::Dnf),
-            "flatpak" => Some(PackageManager::Flatpak),
-            "npm" => Some(PackageManager::Npm),
-            "pacman" => Some(PackageManager::Pacman),
-            "snap" => Some(PackageManager::Snap),
-            "go" => Some(PackageManager::Go),
-            "yum" => Some(PackageManager::Yum),
-            "zypper" => Some(PackageManager::Zypper),
-            "pip" => Some(PackageManager::Pip),
-            "gem" => Some(PackageManager::Gem),
-            "nix" => Some(PackageManager::Nix),
-            _ => None,
+            "apt" => Ok(PackageManager::Apt),
+            "brew" => Ok(PackageManager::Brew),
+            "bun" => Ok(PackageManager::Bun),
+            "cargo" => Ok(PackageManager::Cargo),
+            "dnf" => Ok(PackageManager::Dnf),
+            "flatpak" => Ok(PackageManager::Flatpak),
+            "npm" => Ok(PackageManager::Npm),
+            "pacman" => Ok(PackageManager::Pacman),
+            "snap" => Ok(PackageManager::Snap),
+            "go" => Ok(PackageManager::Go),
+            "yum" => Ok(PackageManager::Yum),
+            "zypper" => Ok(PackageManager::Zypper),
+            "pip" => Ok(PackageManager::Pip),
+            "gem" => Ok(PackageManager::Gem),
+            "nix" => Ok(PackageManager::Nix),
+            _ => Err(format!("Unknown package manager: {}", s)),
         }
     }
+}
+
+impl PackageManager {
 
     pub fn get_provider(&self) -> Box<dyn PackageProvider> {
         match self {
@@ -117,13 +123,7 @@ impl PackageManager {
             PackageManager::Pip,
         ];
 
-        for manager in managers {
-            if manager.get_provider().is_available() {
-                return Some(manager);
-            }
-        }
-
-        None
+        managers.into_iter().find(|manager| manager.get_provider().is_available())
     }
 }
 

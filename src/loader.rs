@@ -8,6 +8,7 @@ use crate::discovery::DiscoveredModule;
 use crate::module::ModuleDefinition;
 use oxc_allocator::Allocator;
 use oxc_ast::ast::*;
+use std::str::FromStr;
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 use std::fs;
@@ -48,7 +49,7 @@ pub fn load_module(discovered: &DiscoveredModule) -> Result<LoadedModule, LoadEr
 
     // Parse with oxc
     let allocator = Allocator::default();
-    let source_type = SourceType::from_path(&discovered.path).unwrap_or(SourceType::default());
+    let source_type = SourceType::from_path(&discovered.path).unwrap_or_default();
     let ret = Parser::new(&allocator, &content, source_type).parse();
 
     if !ret.errors.is_empty() {
@@ -117,21 +118,17 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
     let mut method_calls = Vec::new();
 
     // Collect all method calls in the chain
-    loop {
-        if let Expression::CallExpression(call) = current_expr {
-            // Get the method name
-            if let Some(member) = call.callee.as_member_expression() {
-                if let Some(prop_name) = get_property_name(member) {
-                    method_calls.push((prop_name, &call.arguments));
-                }
-                current_expr = member.object();
-            } else if let Expression::Identifier(ident) = &call.callee {
-                // This should be defineModule
-                method_calls.push((ident.name.to_string(), &call.arguments));
-                break;
-            } else {
-                break;
+    while let Expression::CallExpression(call) = current_expr {
+        // Get the method name
+        if let Some(member) = call.callee.as_member_expression() {
+            if let Some(prop_name) = get_property_name(member) {
+                method_calls.push((prop_name, &call.arguments));
             }
+            current_expr = member.object();
+        } else if let Expression::Identifier(ident) = &call.callee {
+            // This should be defineModule
+            method_calls.push((ident.name.to_string(), &call.arguments));
+            break;
         } else {
             break;
         }
@@ -146,10 +143,8 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
             return None;
         }
         if args.len() == 1 {
-            if let Some(arg_expr) = args[0].as_expression() {
-                if let Expression::StringLiteral(lit) = arg_expr {
-                    module_def.name = lit.value.to_string();
-                }
+            if let Some(Expression::StringLiteral(lit)) = args[0].as_expression() {
+                module_def.name = lit.value.to_string();
             }
         }
     } else {
@@ -161,42 +156,34 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
         match method_name.as_str() {
             "description" => {
                 if args.len() == 1 {
-                    if let Some(arg_expr) = args[0].as_expression() {
-                        if let Expression::StringLiteral(lit) = arg_expr {
-                            module_def.description = Some(lit.value.to_string());
-                        }
+                    if let Some(Expression::StringLiteral(lit)) = args[0].as_expression() {
+                        module_def.description = Some(lit.value.to_string());
                     }
                 }
             }
             "tags" => {
                 // Parse tags - can be multiple string arguments
                 for arg in args.iter() {
-                    if let Some(arg_expr) = arg.as_expression() {
-                        if let Expression::StringLiteral(lit) = arg_expr {
-                            module_def.tags.push(lit.value.to_string());
-                        }
+                    if let Some(Expression::StringLiteral(lit)) = arg.as_expression() {
+                        module_def.tags.push(lit.value.to_string());
                     }
                 }
             }
             "depends" | "dependsOn" => {
                 // Parse dependencies - can be multiple string arguments
                 for arg in args.iter() {
-                    if let Some(arg_expr) = arg.as_expression() {
-                        if let Expression::StringLiteral(lit) = arg_expr {
-                            module_def.dependencies.push(lit.value.to_string());
-                        }
+                    if let Some(Expression::StringLiteral(lit)) = arg.as_expression() {
+                        module_def.dependencies.push(lit.value.to_string());
                     }
                 }
             }
             "actions" => {
                 if args.len() == 1 {
-                    if let Some(arg_expr) = args[0].as_expression() {
-                        if let Expression::ArrayExpression(arr) = arg_expr {
-                            for elem in &arr.elements {
-                                if let Some(action_expr) = elem.as_expression() {
-                                    if let Some(action) = parse_action_call(action_expr) {
-                                        module_def.actions.push(action);
-                                    }
+                    if let Some(Expression::ArrayExpression(arr)) = args[0].as_expression() {
+                        for elem in &arr.elements {
+                            if let Some(action_expr) = elem.as_expression() {
+                                if let Some(action) = parse_action_call(action_expr) {
+                                    module_def.actions.push(action);
                                 }
                             }
                         }
@@ -230,137 +217,135 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
             let action_name = ident.name.as_str();
 
             if call.arguments.len() == 1 {
-                if let Some(arg_expr) = call.arguments[0].as_expression() {
-                    if let Expression::ObjectExpression(obj) = arg_expr {
-                        match action_name {
-                            "packageInstall" => {
-                                let names = get_string_array_prop(obj, "names")?;
-                                let manager = get_package_manager(obj, "manager");
-                                return Some(ActionType::PackageInstall(PackageInstall {
-                                    names,
-                                    manager,
-                                }));
-                            }
-                            "linkDotfile" | "linkFile" => {
-                                // Support both old linkDotfile and new linkFile names
-                                let source = get_string_prop(obj, "source")
-                                    .or_else(|| get_string_prop(obj, "from"))?;
-                                let target = get_string_prop(obj, "target")
-                                    .or_else(|| get_string_prop(obj, "to"))?;
-                                let force = get_bool_prop(obj, "force").unwrap_or(false);
-                                return Some(ActionType::LinkFile(LinkFile {
-                                    source,
-                                    target,
-                                    force,
-                                }));
-                            }
-                            "linkDirectory" => {
-                                let from = get_string_prop(obj, "from")?;
-                                let to = get_string_prop(obj, "to")?;
-                                let force = get_bool_prop(obj, "force").unwrap_or(false);
-                                return Some(ActionType::LinkDirectory(LinkDirectory {
-                                    source: from,
-                                    target: to,
-                                    force,
-                                }));
-                            }
-                            "executeCommand" => {
-                                let shell = get_string_prop(obj, "shell");
-                                let command = get_string_prop(obj, "command")?;
-                                let args = get_array_of_strings(obj, "args");
-                                let escalate = get_bool_prop(obj, "escalate").unwrap_or(false);
-                                return Some(ActionType::ExecuteCommand(ExecuteCommand {
-                                    shell,
-                                    command,
-                                    args,
-                                    escalate,
-                                }));
-                            }
-                            "copyFile" => {
-                                let source = get_string_prop(obj, "source")?;
-                                let target = get_string_prop(obj, "target")
-                                    .or_else(|| get_string_prop(obj, "destination"))?;
-                                let escalate = get_bool_prop(obj, "escalate")
-                                    .or_else(|| get_bool_prop(obj, "requiresPrivilegeEscalation"))
-                                    .unwrap_or(false);
-                                return Some(ActionType::CopyFile(CopyFile {
-                                    source,
-                                    target,
-                                    escalate,
-                                }));
-                            }
-                            "directory" => {
-                                let path = get_string_prop(obj, "path")?;
-                                let escalate = get_bool_prop(obj, "escalate");
-                                return Some(ActionType::Directory(Directory { path, escalate }));
-                            }
-                            "httpDownload" => {
-                                let url = get_string_prop(obj, "url")?;
-                                let destination = get_string_prop(obj, "destination")?;
-                                let checksum = None; // TODO: Parse checksum object if provided
-                                let mode = get_number_prop(obj, "mode").map(|n| n as u32);
-                                return Some(ActionType::HttpDownload(HttpDownload {
-                                    url,
-                                    destination,
-                                    checksum,
-                                    mode,
-                                }));
-                            }
-                            "systemdService" => {
-                                let name = get_string_prop(obj, "name")?;
-                                let description = get_string_prop(obj, "description")?;
-                                let exec_start = get_string_prop(obj, "execStart")?;
-                                let service_type = get_string_prop(obj, "serviceType")?;
-                                let scope = get_string_prop(obj, "scope")?;
-                                let restart = get_string_prop(obj, "restart");
-                                let restart_sec =
-                                    get_number_prop(obj, "restartSec").map(|n| n as u32);
-                                return Some(ActionType::SystemdService(SystemdService {
-                                    name,
-                                    description,
-                                    exec_start,
-                                    service_type,
-                                    scope,
-                                    restart,
-                                    restart_sec,
-                                }));
-                            }
-                            "systemdSocket" => {
-                                let name = get_string_prop(obj, "name")?;
-                                let description = get_string_prop(obj, "description")?;
-                                let listen_stream = get_string_prop(obj, "listenStream")?;
-                                let scope = get_string_prop(obj, "scope")?;
-                                return Some(ActionType::SystemdSocket(SystemdSocket {
-                                    name,
-                                    description,
-                                    listen_stream,
-                                    scope,
-                                }));
-                            }
-                            "systemdManage" => {
-                                let name = get_string_prop(obj, "name")?;
-                                let operation = get_string_prop(obj, "operation")?;
-                                let scope = get_string_prop(obj, "scope")?;
-                                return Some(ActionType::SystemdManage(SystemdManage {
-                                    name,
-                                    operation,
-                                    scope,
-                                }));
-                            }
-                            "gitConfig" => {
-                                let entries = get_git_config_entries(obj, "entries")?;
-                                let global = get_bool_prop(obj, "global");
-                                let system = get_bool_prop(obj, "system");
-                                let unset = get_bool_prop(obj, "unset");
-                                return Some(ActionType::GitConfig(GitConfig {
-                                    entries,
-                                    global,
-                                    system,
-                                    unset,
-                                }));
-                            }
-                            _ => {}
+                if let Some(Expression::ObjectExpression(obj)) = call.arguments[0].as_expression() {
+                    match action_name {
+                        "packageInstall" => {
+                            let names = get_string_array_prop(obj, "names")?;
+                            let manager = get_package_manager(obj, "manager");
+                            return Some(ActionType::PackageInstall(PackageInstall {
+                                names,
+                                manager,
+                            }));
                         }
+                        "linkDotfile" | "linkFile" => {
+                            // Support both old linkDotfile and new linkFile names
+                            let source = get_string_prop(obj, "source")
+                                .or_else(|| get_string_prop(obj, "from"))?;
+                            let target = get_string_prop(obj, "target")
+                                .or_else(|| get_string_prop(obj, "to"))?;
+                            let force = get_bool_prop(obj, "force").unwrap_or(false);
+                            return Some(ActionType::LinkFile(LinkFile {
+                                source,
+                                target,
+                                force,
+                            }));
+                        }
+                        "linkDirectory" => {
+                            let from = get_string_prop(obj, "from")?;
+                            let to = get_string_prop(obj, "to")?;
+                            let force = get_bool_prop(obj, "force").unwrap_or(false);
+                            return Some(ActionType::LinkDirectory(LinkDirectory {
+                                source: from,
+                                target: to,
+                                force,
+                            }));
+                        }
+                        "executeCommand" => {
+                            let shell = get_string_prop(obj, "shell");
+                            let command = get_string_prop(obj, "command")?;
+                            let args = get_array_of_strings(obj, "args");
+                            let escalate = get_bool_prop(obj, "escalate").unwrap_or(false);
+                            return Some(ActionType::ExecuteCommand(ExecuteCommand {
+                                shell,
+                                command,
+                                args,
+                                escalate,
+                            }));
+                        }
+                        "copyFile" => {
+                            let source = get_string_prop(obj, "source")?;
+                            let target = get_string_prop(obj, "target")
+                                .or_else(|| get_string_prop(obj, "destination"))?;
+                            let escalate = get_bool_prop(obj, "escalate")
+                                .or_else(|| get_bool_prop(obj, "requiresPrivilegeEscalation"))
+                                .unwrap_or(false);
+                            return Some(ActionType::CopyFile(CopyFile {
+                                source,
+                                target,
+                                escalate,
+                            }));
+                        }
+                        "directory" => {
+                            let path = get_string_prop(obj, "path")?;
+                            let escalate = get_bool_prop(obj, "escalate");
+                            return Some(ActionType::Directory(Directory { path, escalate }));
+                        }
+                        "httpDownload" => {
+                            let url = get_string_prop(obj, "url")?;
+                            let destination = get_string_prop(obj, "destination")?;
+                            let checksum = None; // TODO: Parse checksum object if provided
+                            let mode = get_number_prop(obj, "mode").map(|n| n as u32);
+                            return Some(ActionType::HttpDownload(HttpDownload {
+                                url,
+                                destination,
+                                checksum,
+                                mode,
+                            }));
+                        }
+                        "systemdService" => {
+                            let name = get_string_prop(obj, "name")?;
+                            let description = get_string_prop(obj, "description")?;
+                            let exec_start = get_string_prop(obj, "execStart")?;
+                            let service_type = get_string_prop(obj, "serviceType")?;
+                            let scope = get_string_prop(obj, "scope")?;
+                            let restart = get_string_prop(obj, "restart");
+                            let restart_sec =
+                                get_number_prop(obj, "restartSec").map(|n| n as u32);
+                            return Some(ActionType::SystemdService(SystemdService {
+                                name,
+                                description,
+                                exec_start,
+                                service_type,
+                                scope,
+                                restart,
+                                restart_sec,
+                            }));
+                        }
+                        "systemdSocket" => {
+                            let name = get_string_prop(obj, "name")?;
+                            let description = get_string_prop(obj, "description")?;
+                            let listen_stream = get_string_prop(obj, "listenStream")?;
+                            let scope = get_string_prop(obj, "scope")?;
+                            return Some(ActionType::SystemdSocket(SystemdSocket {
+                                name,
+                                description,
+                                listen_stream,
+                                scope,
+                            }));
+                        }
+                        "systemdManage" => {
+                            let name = get_string_prop(obj, "name")?;
+                            let operation = get_string_prop(obj, "operation")?;
+                            let scope = get_string_prop(obj, "scope")?;
+                            return Some(ActionType::SystemdManage(SystemdManage {
+                                name,
+                                operation,
+                                scope,
+                            }));
+                        }
+                        "gitConfig" => {
+                            let entries = get_git_config_entries(obj, "entries")?;
+                            let global = get_bool_prop(obj, "global");
+                            let system = get_bool_prop(obj, "system");
+                            let unset = get_bool_prop(obj, "unset");
+                            return Some(ActionType::GitConfig(GitConfig {
+                                entries,
+                                global,
+                                system,
+                                unset,
+                            }));
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -402,10 +387,8 @@ fn get_string_array_prop(obj: &ObjectExpression, key: &str) -> Option<Vec<String
                 if let Expression::ArrayExpression(arr) = &prop.value {
                     let mut strings = Vec::new();
                     for elem in &arr.elements {
-                        if let Some(expr) = elem.as_expression() {
-                            if let Expression::StringLiteral(lit) = expr {
-                                strings.push(lit.value.to_string());
-                            }
+                        if let Some(Expression::StringLiteral(lit)) = elem.as_expression() {
+                            strings.push(lit.value.to_string());
                         }
                     }
                     return Some(strings);
@@ -422,7 +405,7 @@ fn get_array_of_strings(obj: &ObjectExpression, key: &str) -> Option<Vec<String>
 
 fn get_package_manager(obj: &ObjectExpression, key: &str) -> Option<PackageManager> {
     let manager_str = get_string_prop(obj, key)?;
-    PackageManager::from_str(&manager_str)
+    PackageManager::from_str(&manager_str).ok()
 }
 
 fn get_bool_prop(obj: &ObjectExpression, key: &str) -> Option<bool> {
@@ -471,62 +454,55 @@ fn parse_object_literal(obj: &ObjectExpression) -> Option<ModuleDefinition> {
     let mut actions = Vec::new();
 
     for prop in &obj.properties {
-        match prop {
-            ObjectPropertyKind::ObjectProperty(prop) => {
-                let key = match &prop.key {
-                    PropertyKey::StaticIdentifier(ident) => ident.name.as_str(),
-                    PropertyKey::StringLiteral(lit) => lit.value.as_str(),
-                    _ => continue,
-                };
+        if let ObjectPropertyKind::ObjectProperty(prop) = prop {
+            let key = match &prop.key {
+                PropertyKey::StaticIdentifier(ident) => ident.name.as_str(),
+                PropertyKey::StringLiteral(lit) => lit.value.as_str(),
+                _ => continue,
+            };
 
-                match key {
-                    "name" => {
-                        if let Expression::StringLiteral(lit) = &prop.value {
-                            name = Some(lit.value.to_string());
-                        }
+            match key {
+                "name" => {
+                    if let Expression::StringLiteral(lit) = &prop.value {
+                        name = Some(lit.value.to_string());
                     }
-                    "description" => {
-                        if let Expression::StringLiteral(lit) = &prop.value {
-                            description = Some(lit.value.to_string());
-                        }
-                    }
-                    "tags" => {
-                        if let Expression::ArrayExpression(arr) = &prop.value {
-                            for elem in &arr.elements {
-                                if let Some(expr) = elem.as_expression() {
-                                    if let Expression::StringLiteral(lit) = expr {
-                                        tags.push(lit.value.to_string());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "dependencies" => {
-                        if let Expression::ArrayExpression(arr) = &prop.value {
-                            for elem in &arr.elements {
-                                if let Some(expr) = elem.as_expression() {
-                                    if let Expression::StringLiteral(lit) = expr {
-                                        dependencies.push(lit.value.to_string());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "actions" => {
-                        if let Expression::ArrayExpression(arr) = &prop.value {
-                            for elem in &arr.elements {
-                                if let Some(expr) = elem.as_expression() {
-                                    if let Some(action) = parse_action(expr) {
-                                        actions.push(action);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
                 }
+                "description" => {
+                    if let Expression::StringLiteral(lit) = &prop.value {
+                        description = Some(lit.value.to_string());
+                    }
+                }
+                "tags" => {
+                    if let Expression::ArrayExpression(arr) = &prop.value {
+                        for elem in &arr.elements {
+                            if let Some(Expression::StringLiteral(lit)) = elem.as_expression() {
+                                tags.push(lit.value.to_string());
+                            }
+                        }
+                    }
+                }
+                "dependencies" => {
+                    if let Expression::ArrayExpression(arr) = &prop.value {
+                        for elem in &arr.elements {
+                            if let Some(Expression::StringLiteral(lit)) = elem.as_expression() {
+                                dependencies.push(lit.value.to_string());
+                            }
+                        }
+                    }
+                }
+                "actions" => {
+                    if let Expression::ArrayExpression(arr) = &prop.value {
+                        for elem in &arr.elements {
+                            if let Some(expr) = elem.as_expression() {
+                                if let Some(action) = parse_action(expr) {
+                                    actions.push(action);
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
     }
 
@@ -577,7 +553,7 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                     let manager = props
                         .get("manager")
                         .and_then(|v| v.as_str())
-                        .and_then(|s| crate::atoms::package::PackageManager::from_str(s));
+                        .and_then(|s| crate::atoms::package::PackageManager::from_str(s).ok());
                     return Some(ActionType::PackageInstall(PackageInstall {
                         names,
                         manager,
@@ -783,7 +759,7 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                     let manager = props
                         .get("manager")
                         .and_then(|v| v.as_str())
-                        .and_then(|s| crate::atoms::package::PackageManager::from_str(s));
+                        .and_then(|s| crate::atoms::package::PackageManager::from_str(s).ok());
                     return Some(ActionType::PackageRemove(PackageRemove { names, manager }));
                 }
             }
@@ -888,13 +864,11 @@ fn get_git_config_entries(obj: &ObjectExpression, key: &str) -> Option<Vec<GitCo
                 if let Expression::ArrayExpression(arr) = &prop.value {
                     let mut entries = Vec::new();
                     for elem in &arr.elements {
-                        if let Some(expr) = elem.as_expression() {
-                            if let Expression::ObjectExpression(entry_obj) = expr {
-                                let key = get_string_prop(entry_obj, "key")?;
-                                let value = get_string_prop(entry_obj, "value")?;
-                                let add = get_bool_prop(entry_obj, "add");
-                                entries.push(GitConfigEntry { key, value, add });
-                            }
+                        if let Some(Expression::ObjectExpression(entry_obj)) = elem.as_expression() {
+                            let key = get_string_prop(entry_obj, "key")?;
+                            let value = get_string_prop(entry_obj, "value")?;
+                            let add = get_bool_prop(entry_obj, "add");
+                            entries.push(GitConfigEntry { key, value, add });
                         }
                     }
                     return Some(entries);

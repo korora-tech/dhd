@@ -14,9 +14,9 @@ fn resolve_xdg_target(target: &str) -> PathBuf {
     }
 
     // Handle tilde expansion for home directory
-    if target.starts_with("~/") {
+    if let Some(stripped) = target.strip_prefix("~/") {
         if let Some(base_dirs) = BaseDirs::new() {
-            return base_dirs.home_dir().join(&target[2..]);
+            return base_dirs.home_dir().join(stripped);
         }
     }
 

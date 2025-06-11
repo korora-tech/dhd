@@ -10,7 +10,7 @@ impl PackageProvider for FlatpakProvider {
 
     fn is_package_installed(&self, package: &str) -> Result<bool, String> {
         let output = Command::new("flatpak")
-            .args(&["list", "--app", "--columns=application"])
+            .args(["list", "--app", "--columns=application"])
             .output()
             .map_err(|e| format!("Failed to check package status: {}", e))?;
 
@@ -20,7 +20,7 @@ impl PackageProvider for FlatpakProvider {
 
     fn install_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("flatpak")
-            .args(&["install", "-y", "flathub", package])
+            .args(["install", "-y", "flathub", package])
             .output()
             .map_err(|e| format!("Failed to install package: {}", e))?;
 
@@ -37,7 +37,7 @@ impl PackageProvider for FlatpakProvider {
 
     fn uninstall_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("flatpak")
-            .args(&["uninstall", "-y", package])
+            .args(["uninstall", "-y", package])
             .output()
             .map_err(|e| format!("Failed to uninstall package: {}", e))?;
 
@@ -54,7 +54,7 @@ impl PackageProvider for FlatpakProvider {
 
     fn update(&self) -> Result<(), String> {
         let output = Command::new("flatpak")
-            .args(&["update", "-y"])
+            .args(["update", "-y"])
             .output()
             .map_err(|e| format!("Failed to update flatpak: {}", e))?;
 

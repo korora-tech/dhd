@@ -10,7 +10,7 @@ impl PackageProvider for BrewProvider {
 
     fn is_package_installed(&self, package: &str) -> Result<bool, String> {
         let output = Command::new("brew")
-            .args(&["list", "--formula", package])
+            .args(["list", "--formula", package])
             .output()
             .map_err(|e| format!("Failed to check package status: {}", e))?;
 
@@ -19,7 +19,7 @@ impl PackageProvider for BrewProvider {
 
     fn install_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("brew")
-            .args(&["install", package])
+            .args(["install", package])
             .output()
             .map_err(|e| format!("Failed to install package: {}", e))?;
 
@@ -36,7 +36,7 @@ impl PackageProvider for BrewProvider {
 
     fn uninstall_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("brew")
-            .args(&["uninstall", package])
+            .args(["uninstall", package])
             .output()
             .map_err(|e| format!("Failed to uninstall package: {}", e))?;
 
@@ -53,7 +53,7 @@ impl PackageProvider for BrewProvider {
 
     fn update(&self) -> Result<(), String> {
         let output = Command::new("brew")
-            .args(&["update"])
+            .args(["update"])
             .output()
             .map_err(|e| format!("Failed to update brew: {}", e))?;
 

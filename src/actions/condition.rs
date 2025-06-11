@@ -41,7 +41,7 @@ impl Condition {
                 cmd.arg("-c");
 
                 if let Some(args) = args {
-                    cmd.arg(&format!("{} {}", command, args.join(" ")));
+                    cmd.arg(format!("{} {}", command, args.join(" ")));
                 } else {
                     cmd.arg(command);
                 }
