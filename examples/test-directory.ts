@@ -3,6 +3,6 @@ export default defineModule("test-directory")
     .actions([
         directory({
             path: "/tmp/test",
-            requires_privilege_escalation: false,
+            escalate: false,
         }),
     ]);

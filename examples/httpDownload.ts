@@ -1,7 +1,7 @@
 export default defineModule("httpDownload")
     .description("Download files from HTTP URLs with checksum verification")
     .actions([
-        httpdownload({
+        httpDownload({
             url: "https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz",
             destination: "~/.local/bin/ripgrep.tar.gz",
             checksum: {

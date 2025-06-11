@@ -3,14 +3,14 @@ export default defineModule("directory")
     .actions([
         directory({
             path: "~/.config/myapp",
-            requires_privilege_escalation: false,
+            escalate: false,
         }),
         directory({
             path: "/etc/myapp",
-            requires_privilege_escalation: true, // this field should default to false and be optional
+            escalate: true, // this field should default to false and be optional
         }),
         directory({
             path: "~/.cache/myapp/logs",
-            requires_privilege_escalation: false,
+            escalate: false,
         }),
     ]);
