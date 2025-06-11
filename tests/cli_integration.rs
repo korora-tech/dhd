@@ -6,7 +6,7 @@ use tempfile::TempDir;
 #[test]
 fn test_cli_help() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--help"])
+        .args(["run", "--", "--help"])
         .output()
         .expect("Failed to execute command");
 
@@ -29,7 +29,7 @@ fn test_generate_types_command() {
 
     // Run the generate types command
     let output = Command::new("cargo")
-        .args(&["run", "--", "generate", "types"])
+        .args(["run", "--", "generate", "types"])
         .output()
         .expect("Failed to execute command");
 
@@ -79,7 +79,7 @@ fn test_generate_types_command() {
 #[test]
 fn test_unknown_command() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "unknown-command"])
+        .args(["run", "--", "unknown-command"])
         .output()
         .expect("Failed to execute command");
 
@@ -90,7 +90,7 @@ fn test_unknown_command() {
 #[test]
 fn test_generate_command_without_subcommand() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "generate"])
+        .args(["run", "--", "generate"])
         .output()
         .expect("Failed to execute command");
 
@@ -104,13 +104,13 @@ fn test_list_command_empty_directory() {
 
     // First build the binary
     Command::new("cargo")
-        .args(&["build", "--quiet"])
+        .args(["build", "--quiet"])
         .output()
         .expect("Failed to build");
 
     let binary_path = env!("CARGO_BIN_EXE_dhd");
     let output = Command::new(binary_path)
-        .args(&["list"])
+        .args(["list"])
         .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute command");
@@ -142,13 +142,13 @@ fn test_list_command_with_modules() {
 
     // First build the binary
     Command::new("cargo")
-        .args(&["build", "--quiet"])
+        .args(["build", "--quiet"])
         .output()
         .expect("Failed to build");
 
     let binary_path = env!("CARGO_BIN_EXE_dhd");
     let output = Command::new(binary_path)
-        .args(&["list"])
+        .args(["list"])
         .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute command");
