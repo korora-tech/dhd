@@ -1,18 +1,5 @@
-name = "dhd-docs"
-compatibility_date = "2024-01-01"
+name = "dhd-documentation"
+compatibility_date = "2025-06-10"
 
 [site]
 bucket = "./dist"
-
-[env.production]
-name = "dhd-docs-production"
-
-[env.preview]
-name = "dhd-docs-preview"
-
-# Cloudflare Pages configuration
-[build]
-command = "npm run build"
-
-[build.upload]
-format = "service-worker"

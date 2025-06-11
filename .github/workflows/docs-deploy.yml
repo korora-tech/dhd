@@ -1,10 +1,10 @@
-name: "Documentation: Preview"
+name: "Documentation: Deploy"
 
 on:
-  pull_request:
-    paths:
-      - 'docs/**'
-      - '.github/workflows/docs-preview.yml'
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -29,26 +29,13 @@ jobs:
       - name: Build documentation
         working-directory: docs
         run: bun run build
+        env:
+          PUBLIC_VERSION: ${{ github.ref_name }}
 
       - name: Deploy to Cloudflare
-        id: versions_upload
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: docs
           packageManager: bun
-          command: versions upload --message "${{ github.sha }}"
-
-      - name: Get Version ID
-        shell: bash
-        id: version_id
-        run: |
-            version_id=$(echo '${{ steps.versions_upload.outputs.command-output }}' | grep "Worker Version ID" | awk '{print $4}')
-            echo "version_id=$version_id" >> $GITHUB_OUTPUT
-
-      - name: Comment PR
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          message: |
-            Your preview deployment is available at https://${{ steps.version_id.outputs.version_id }}--${{ vars.CLOUDFLARE_ACCOUNT_ID }}.workers.dev
