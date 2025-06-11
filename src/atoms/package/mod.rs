@@ -90,7 +90,6 @@ impl FromStr for PackageManager {
 }
 
 impl PackageManager {
-
     pub fn get_provider(&self) -> Box<dyn PackageProvider> {
         match self {
             PackageManager::Apt => Box::new(apt::AptProvider),
@@ -123,7 +122,9 @@ impl PackageManager {
             PackageManager::Pip,
         ];
 
-        managers.into_iter().find(|manager| manager.get_provider().is_available())
+        managers
+            .into_iter()
+            .find(|manager| manager.get_provider().is_available())
     }
 }
 

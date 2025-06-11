@@ -8,10 +8,10 @@ use crate::discovery::DiscoveredModule;
 use crate::module::ModuleDefinition;
 use oxc_allocator::Allocator;
 use oxc_ast::ast::*;
-use std::str::FromStr;
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 use std::fs;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadedModule {
@@ -299,8 +299,7 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             let service_type = get_string_prop(obj, "serviceType")?;
                             let scope = get_string_prop(obj, "scope")?;
                             let restart = get_string_prop(obj, "restart");
-                            let restart_sec =
-                                get_number_prop(obj, "restartSec").map(|n| n as u32);
+                            let restart_sec = get_number_prop(obj, "restartSec").map(|n| n as u32);
                             return Some(ActionType::SystemdService(SystemdService {
                                 name,
                                 description,
@@ -864,7 +863,8 @@ fn get_git_config_entries(obj: &ObjectExpression, key: &str) -> Option<Vec<GitCo
                 if let Expression::ArrayExpression(arr) = &prop.value {
                     let mut entries = Vec::new();
                     for elem in &arr.elements {
-                        if let Some(Expression::ObjectExpression(entry_obj)) = elem.as_expression() {
+                        if let Some(Expression::ObjectExpression(entry_obj)) = elem.as_expression()
+                        {
                             let key = get_string_prop(entry_obj, "key")?;
                             let value = get_string_prop(entry_obj, "value")?;
                             let add = get_bool_prop(entry_obj, "add");
