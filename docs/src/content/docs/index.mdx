@@ -1,0 +1,84 @@
+---
+title: DHD - Declarative Home Deployment
+description: Manage your home directory, dotfiles, and system configuration using TypeScript
+template: splash
+hero:
+  title: DHD
+  tagline: Declarative Home Deployment - The modern way to manage your system configuration
+  actions:
+    - text: Get Started
+      link: /getting-started/introduction/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/korora-tech/dhd
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why DHD?
+
+<CardGrid stagger>
+	<Card title="TypeScript-Powered" icon="seti:typescript">
+		Write your configuration in TypeScript with full type safety, autocompletion, and IDE support.
+	</Card>
+	<Card title="Cross-Platform" icon="laptop">
+		Works seamlessly across Linux distributions, macOS, and Windows. Platform-specific logic is built-in.
+	</Card>
+	<Card title="Declarative & Idempotent" icon="approve-check-circle">
+		Define what you want, not how to get there. Run multiple times safely - DHD only makes necessary changes.
+	</Card>
+	<Card title="Fast & Parallel" icon="rocket">
+		Intelligent dependency resolution and parallel execution make DHD blazingly fast.
+	</Card>
+</CardGrid>
+
+## Quick Example
+
+```typescript
+import { defineModule, packageInstall, gitConfig, directory } from "dhd";
+
+export default defineModule("dev-setup")
+  .description("Essential development tools")
+  .tags(["core", "development"])
+  .actions([
+    packageInstall({
+      names: ["git", "neovim", "tmux", "ripgrep"]
+    }),
+    
+    gitConfig({
+      scope: "global",
+      settings: {
+        "user.name": "Your Name",
+        "user.email": "your@email.com"
+      }
+    }),
+    
+    directory({ path: "~/.config/nvim" })
+  ]);
+```
+
+## Features
+
+- **Modular Configuration**: Organize your setup into reusable modules with tags and dependencies
+- **Rich Action Library**: Package management, file operations, system services, and more
+- **Platform Detection**: Conditional actions based on OS and distribution
+- **Dry Run Mode**: Preview changes before applying them
+- **Progress Tracking**: Real-time feedback on what's happening
+- **Error Recovery**: Graceful handling of failures with detailed error messages
+
+## Get Started
+
+Ready to take control of your system configuration?
+
+<CardGrid>
+	<Card title="Installation" icon="download">
+		Learn how to install DHD on your system.
+		[Install DHD →](/getting-started/installation/)
+	</Card>
+	<Card title="Quick Start" icon="rocket">
+		Create your first DHD module in minutes.
+		[Quick Start Guide →](/getting-started/quick-start/)
+	</Card>
+</CardGrid>

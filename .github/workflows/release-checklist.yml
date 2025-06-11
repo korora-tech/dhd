@@ -1,0 +1,101 @@
+name: Release Checklist
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  checklist:
+    name: Pre-release Checklist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify version format
+        run: |
+          if ! [[ "${{ github.event.inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Version must be in format X.Y.Z (e.g., 0.1.0)"
+            exit 1
+          fi
+
+      - name: Check Cargo.toml versions
+        run: |
+          # Check main Cargo.toml
+          MAIN_VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          if [ "$MAIN_VERSION" != "${{ github.event.inputs.version }}" ]; then
+            echo "Error: Cargo.toml version ($MAIN_VERSION) doesn't match release version (${{ github.event.inputs.version }})"
+            echo "Update Cargo.toml version before releasing"
+            exit 1
+          fi
+          
+          # Check dhd-macros Cargo.toml
+          MACROS_VERSION=$(grep '^version = ' dhd-macros/Cargo.toml | head -1 | cut -d'"' -f2)
+          echo "dhd-macros version: $MACROS_VERSION"
+
+      - name: Run tests
+        run: |
+          cargo test --all-features
+          cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build all targets locally
+        run: |
+          cargo build --release
+          echo "✅ Build successful"
+
+      - name: Generate release notes template
+        run: |
+          cat > RELEASE_NOTES.md << EOF
+          # Release Checklist for v${{ github.event.inputs.version }}
+
+          ## Pre-release
+          - [ ] All tests passing
+          - [ ] Cargo.toml versions updated
+          - [ ] Documentation updated
+          - [ ] CHANGELOG.md updated
+
+          ## Release Steps
+          1. Create and push tag:
+             \`\`\`bash
+             git tag ${{ github.event.inputs.version }}
+             git push origin ${{ github.event.inputs.version }}
+             \`\`\`
+
+          2. Monitor GitHub Actions for:
+             - [ ] Release workflow completion
+             - [ ] All binaries built successfully
+             - [ ] Documentation deployed
+             - [ ] Crates.io publish (if applicable)
+
+          ## Post-release
+          - [ ] Verify binaries are downloadable
+          - [ ] Test installation instructions
+          - [ ] Update homebrew formula (if applicable)
+          - [ ] Announce release
+
+          ## Notes
+          Add any additional notes here...
+          EOF
+          
+          cat RELEASE_NOTES.md
+
+      - name: Summary
+        run: |
+          echo "## Release Checklist Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Version format valid: ${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Tests passing" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Build successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the generated release notes above" >> $GITHUB_STEP_SUMMARY
+          echo "2. Create and push the tag to trigger the release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "git tag ${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "git push origin ${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
