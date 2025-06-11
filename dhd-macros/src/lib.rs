@@ -88,7 +88,9 @@ pub fn typescript_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let is_optional = is_option_type(&field.ty);
                     let optional_marker = if is_optional { "?" } else { "" };
 
-                    ts_fields.push(format!("    {}{}: {}", field_name_str, optional_marker, field_type));
+                    // Convert field name to camelCase for TypeScript
+                    let ts_field_name = to_camel_case(&field_name_str);
+                    ts_fields.push(format!("    {}{}: {}", ts_field_name, optional_marker, field_type));
                 }
             }
         }
