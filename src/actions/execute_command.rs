@@ -66,7 +66,7 @@ mod tests {
         assert_eq!(action.shell, Some("bash".to_string()));
         assert_eq!(action.command, "echo hello");
         assert_eq!(action.args, None);
-        assert_eq!(action.escalate, false);
+        assert!(!action.escalate);
     }
 
     #[test]
@@ -130,7 +130,7 @@ mod tests {
         // The atom should have the same shell and command
         let atom = &atoms[0];
         // Check that we got the atom
-        assert!(atom.describe().len() > 0);
+        assert!(!atom.describe().is_empty());
     }
 
     #[test]
