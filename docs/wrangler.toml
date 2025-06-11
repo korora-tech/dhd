@@ -1,5 +1,5 @@
 name = "dhd-documentation"
 compatibility_date = "2025-06-10"
 
-[site]
-bucket = "./dist"
+[assets]
+directory = "./dist"

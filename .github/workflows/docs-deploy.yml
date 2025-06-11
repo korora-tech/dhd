@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Cloudflare Pages
+    name: Deploy to Cloudflare
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,3 +39,4 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: docs
           packageManager: bun
+          wranglerVersion: 4.19.2
