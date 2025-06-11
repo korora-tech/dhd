@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: read
       deployments: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,7 +35,7 @@ jobs:
         id: versions_upload
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDLFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: docs
           packageManager: bun
@@ -52,4 +53,4 @@ jobs:
         uses: thollander/actions-comment-pull-request@v3
         with:
           message: |
-            Your preview deployment is available at https://${{ steps.version_id.outputs.version_id }}--${{ vars.CLOUDFLARE_ACCOUNT_ID }}.workers.dev
+            Your preview deployment is available at https://${{ steps.version_id.outputs.version_id }}-dhd-documentation.korora-tech.workers.dev
