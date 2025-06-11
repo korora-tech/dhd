@@ -1,7 +1,7 @@
 use std::fs;
 use crate::module::ModuleDefinition;
 use crate::discovery::DiscoveredModule;
-use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket, DconfImport, InstallGnomeExtensions, PackageRemove, SystemdManage};
+use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket, DconfImport, InstallGnomeExtensions, PackageRemove, SystemdManage, GitConfig, git_config::GitConfigEntry};
 use crate::atoms::package::PackageManager;
 use oxc_allocator::Allocator;
 use oxc_parser::Parser;
@@ -290,6 +290,13 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                                 let operation = get_string_prop(obj, "operation")?;
                                 let scope = get_string_prop(obj, "scope")?;
                                 return Some(ActionType::SystemdManage(SystemdManage { name, operation, scope }));
+                            }
+                            "gitConfig" => {
+                                let entries = get_git_config_entries(obj, "entries")?;
+                                let global = get_bool_prop(obj, "global");
+                                let system = get_bool_prop(obj, "system");
+                                let unset = get_bool_prop(obj, "unset");
+                                return Some(ActionType::GitConfig(GitConfig { entries, global, system, unset }));
                             }
                             _ => {}
                         }
@@ -599,6 +606,26 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                 let scope = props.get("scope").and_then(|v| v.as_str()).map(String::from)?;
                 return Some(ActionType::SystemdManage(SystemdManage { name, operation, scope }));
             }
+            Some("GitConfig") => {
+                if let Some(serde_json::Value::Array(entries_arr)) = props.get("entries") {
+                    let entries: Vec<GitConfigEntry> = entries_arr.iter()
+                        .filter_map(|v| {
+                            if let serde_json::Value::Object(entry) = v {
+                                let key = entry.get("key")?.as_str()?.to_string();
+                                let value = entry.get("value")?.as_str()?.to_string();
+                                let add = entry.get("add").and_then(|v| v.as_bool());
+                                Some(GitConfigEntry { key, value, add })
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    let global = props.get("global").and_then(|v| v.as_bool());
+                    let system = props.get("system").and_then(|v| v.as_bool());
+                    let unset = props.get("unset").and_then(|v| v.as_bool());
+                    return Some(ActionType::GitConfig(GitConfig { entries, global, system, unset }));
+                }
+            }
             _ => {}
         }
     }
@@ -639,6 +666,36 @@ fn expression_to_json(expr: &Expression) -> Option<serde_json::Value> {
         }
         _ => None,
     }
+}
+
+fn get_git_config_entries(obj: &ObjectExpression, key: &str) -> Option<Vec<GitConfigEntry>> {
+    for prop in &obj.properties {
+        if let ObjectPropertyKind::ObjectProperty(prop) = prop {
+            let prop_key = match &prop.key {
+                PropertyKey::StaticIdentifier(ident) => ident.name.as_str(),
+                PropertyKey::StringLiteral(lit) => lit.value.as_str(),
+                _ => continue,
+            };
+            
+            if prop_key == key {
+                if let Expression::ArrayExpression(arr) = &prop.value {
+                    let mut entries = Vec::new();
+                    for elem in &arr.elements {
+                        if let Some(expr) = elem.as_expression() {
+                            if let Expression::ObjectExpression(entry_obj) = expr {
+                                let key = get_string_prop(entry_obj, "key")?;
+                                let value = get_string_prop(entry_obj, "value")?;
+                                let add = get_bool_prop(entry_obj, "add");
+                                entries.push(GitConfigEntry { key, value, add });
+                            }
+                        }
+                    }
+                    return Some(entries);
+                }
+            }
+        }
+    }
+    None
 }
 
 pub fn load_modules(discovered: Vec<DiscoveredModule>) -> Vec<Result<LoadedModule, LoadError>> {
