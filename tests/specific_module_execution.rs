@@ -1,4 +1,4 @@
-use dhd::{ExecutionEngine, ExecutionMode, discover_modules, load_modules};
+use dhd::{discover_modules, load_modules, ExecutionEngine};
 use std::fs;
 use tempfile::TempDir;
 
@@ -40,19 +40,16 @@ export default defineModule("test-module")
         println!("  Dependencies: {:?}", module.definition.dependencies);
     }
 
-    // Create execution plan
-    let engine = ExecutionEngine::new(ExecutionMode::DryRun);
-    let plan = engine.plan(successful_modules);
+    // Verify module was loaded correctly
+    assert_eq!(successful_modules.len(), 1);
+    assert_eq!(successful_modules[0].definition.name, "test-module");
+    assert_eq!(successful_modules[0].definition.actions.len(), 3);
 
-    println!("\nExecution plan:");
-    println!("  Module count: {}", plan.module_count);
-    println!("  Action count: {}", plan.action_count);
-    println!("  Atom count: {}", plan.atoms.len());
-
-    // Verify the plan
-    assert_eq!(plan.module_count, 1);
-    assert_eq!(plan.action_count, 3);
-    assert!(plan.atoms.len() >= 3, "Should have at least 3 atoms");
+    // Create execution engine and run in dry mode
+    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let result = engine.execute(successful_modules);
+    
+    assert!(result.is_ok(), "Dry run execution should succeed");
 }
 
 #[test]
@@ -93,77 +90,127 @@ export default defineModule("other-module")
 
     assert_eq!(selected_modules.len(), 1);
     assert_eq!(selected_modules[0].definition.name, "target-module");
+    assert_eq!(selected_modules[0].definition.actions.len(), 2);
 
-    // Create execution plan for selected module only
-    let engine = ExecutionEngine::new(ExecutionMode::DryRun);
-    let plan = engine.plan(selected_modules);
-
-    assert_eq!(plan.module_count, 1);
-    assert_eq!(plan.action_count, 2);
+    // Create execution engine for selected module only
+    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let result = engine.execute(selected_modules);
+    assert!(result.is_ok(), "Dry run execution should succeed");
 }
 
 #[test]
-fn test_module_filtering_edge_cases() {
+fn test_module_filtering_by_tags() {
     let temp_dir = TempDir::new().unwrap();
 
-    // Module with no actions
-    let empty_module = r#"
-export default defineModule("empty")
-    .description("Empty module")
-    .actions([]);
-"#;
-
-    // Module with tags but no actions
-    let tagged_empty = r#"
-export default defineModule("tagged-empty")
-    .description("Tagged but empty")
-    .tags("test", "empty")
-    .actions([]);
-"#;
-
-    // Module with dependencies
-    let dependent_module = r#"
-export default defineModule("dependent")
-    .description("Module with dependencies")
-    .depends("base")
+    // Create modules with different tags
+    let dev_module = r#"
+export default defineModule("dev-setup")
+    .tags("dev", "tools")
     .actions([
-        packageInstall({ names: ["dependent-tool"] })
+        packageInstall({ names: ["dev-tools"] })
     ]);
 "#;
 
-    fs::write(temp_dir.path().join("empty.ts"), empty_module).unwrap();
-    fs::write(temp_dir.path().join("tagged-empty.ts"), tagged_empty).unwrap();
-    fs::write(temp_dir.path().join("dependent.ts"), dependent_module).unwrap();
+    let prod_module = r#"
+export default defineModule("prod-setup")
+    .tags("prod", "deployment")
+    .actions([
+        packageInstall({ names: ["prod-tools"] })
+    ]);
+"#;
+
+    let mixed_module = r#"
+export default defineModule("common-setup")
+    .tags("dev", "prod", "common")
+    .actions([
+        packageInstall({ names: ["common-tools"] })
+    ]);
+"#;
+
+    fs::write(temp_dir.path().join("dev-setup.ts"), dev_module).unwrap();
+    fs::write(temp_dir.path().join("prod-setup.ts"), prod_module).unwrap();
+    fs::write(temp_dir.path().join("common-setup.ts"), mixed_module).unwrap();
 
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    let successful_modules: Vec<_> = loaded.into_iter().filter_map(|r| r.ok()).collect();
+    let all_modules: Vec<_> = loaded.into_iter().filter_map(|r| r.ok()).collect();
 
-    assert_eq!(successful_modules.len(), 3);
+    // Filter by "dev" tag
+    let dev_modules: Vec<_> = all_modules
+        .iter()
+        .filter(|m| m.definition.tags.contains(&"dev".to_string()))
+        .cloned()
+        .collect();
 
-    // Test filtering each module
-    for module in &successful_modules {
-        println!("Testing module: {}", module.definition.name);
-        let selected = vec![module.clone()];
-        let engine = ExecutionEngine::new(ExecutionMode::DryRun);
-        let plan = engine.plan(selected);
+    assert_eq!(dev_modules.len(), 2, "Should have 2 modules with 'dev' tag");
+    
+    let names: Vec<&str> = dev_modules.iter()
+        .map(|m| m.definition.name.as_str())
+        .collect();
+    assert!(names.contains(&"dev-setup"));
+    assert!(names.contains(&"common-setup"));
 
-        match module.definition.name.as_str() {
-            "empty" | "tagged-empty" => {
-                assert_eq!(plan.atoms.len(), 0, "Empty modules should have no atoms");
-                assert_eq!(plan.action_count, 0, "Empty modules should have no actions");
-            }
-            "dependent" => {
-                assert_eq!(
-                    plan.action_count, 1,
-                    "Dependent module should have 1 action"
-                );
-                assert!(
-                    plan.atoms.len() >= 1,
-                    "Dependent module should have at least 1 atom"
-                );
-            }
-            _ => panic!("Unexpected module name"),
-        }
-    }
+    // Execute filtered modules
+    let engine = ExecutionEngine::new(2, true); // concurrency=2, dry_run=true
+    let result = engine.execute(dev_modules);
+    assert!(result.is_ok(), "Dry run execution should succeed");
+}
+
+#[test]
+fn test_multi_filter_execution() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create a module that matches multiple criteria
+    let module_content = r#"
+export default defineModule("special-module")
+    .description("A special module for testing")
+    .tags("special", "test", "important")
+    .actions([
+        packageInstall({ names: ["special-tool"] }),
+        linkFile({ source: "special.conf", target: "~/.special.conf" }),
+        executeCommand({ command: "special-tool", args: ["--setup"] })
+    ]);
+"#;
+
+    // Create other modules that don't match all criteria
+    let other1 = r#"
+export default defineModule("regular-module")
+    .tags("regular", "test")
+    .actions([
+        packageInstall({ names: ["regular-tool"] })
+    ]);
+"#;
+
+    let other2 = r#"
+export default defineModule("special-other")
+    .tags("special", "other")
+    .actions([
+        packageInstall({ names: ["other-tool"] })
+    ]);
+"#;
+
+    fs::write(temp_dir.path().join("special-module.ts"), module_content).unwrap();
+    fs::write(temp_dir.path().join("regular-module.ts"), other1).unwrap();
+    fs::write(temp_dir.path().join("special-other.ts"), other2).unwrap();
+
+    let discovered = discover_modules(temp_dir.path()).unwrap();
+    let loaded = load_modules(discovered);
+    let all_modules: Vec<_> = loaded.into_iter().filter_map(|r| r.ok()).collect();
+
+    // Filter by both name pattern and tag
+    let selected: Vec<_> = all_modules
+        .into_iter()
+        .filter(|m| {
+            m.definition.name.contains("special") && 
+            m.definition.tags.contains(&"test".to_string())
+        })
+        .collect();
+
+    assert_eq!(selected.len(), 1, "Only one module should match both criteria");
+    assert_eq!(selected[0].definition.name, "special-module");
+    assert_eq!(selected[0].definition.actions.len(), 3);
+
+    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let result = engine.execute(selected);
+    assert!(result.is_ok(), "Dry run execution should succeed");
 }

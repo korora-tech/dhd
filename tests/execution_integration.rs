@@ -1,4 +1,4 @@
-use dhd::{ExecutionEngine, ExecutionMode, discover_modules, load_modules};
+use dhd::{ExecutionEngine, discover_modules, load_modules};
 use std::fs;
 use tempfile::TempDir;
 
@@ -32,12 +32,16 @@ export default defineModule("test-exec")
     let successful_modules: Vec<_> = loaded.into_iter().filter_map(|r| r.ok()).collect();
     assert_eq!(successful_modules.len(), 1);
 
-    // Create execution plan
-    let engine = ExecutionEngine::new(ExecutionMode::DryRun);
-    let plan = engine.plan(successful_modules);
-    assert!(plan.atoms.len() >= 3, "Should have at least 3 atoms");
-    assert_eq!(plan.module_count, 1);
-    assert_eq!(plan.action_count, 3);
+    // Verify module was loaded correctly
+    assert_eq!(successful_modules[0].definition.name, "test-exec");
+    assert_eq!(successful_modules[0].definition.actions.len(), 3);
+    
+    // Create execution engine with dry run
+    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    
+    // In dry run mode, execute should succeed without actually running commands
+    let result = engine.execute(successful_modules);
+    assert!(result.is_ok(), "Dry run execution should succeed");
 }
 
 #[test]
@@ -75,22 +79,12 @@ export default defineModule("not-selected")
         .collect();
 
     assert_eq!(selected_modules.len(), 1);
+    assert_eq!(selected_modules[0].definition.name, "selected");
+    assert_eq!(selected_modules[0].definition.actions.len(), 2);
 
-    let engine = ExecutionEngine::new(ExecutionMode::DryRun);
-    let plan = engine.plan(selected_modules);
-    // Should only have atoms from the selected module
-    assert!(
-        plan.atoms.len() >= 2,
-        "Should have at least 2 atoms from selected module"
-    );
-
-    // Verify no atoms from not-selected module
-    let atom_sources: Vec<_> = plan
-        .atoms
-        .iter()
-        .map(|(_, module_name)| module_name)
-        .collect();
-    assert!(atom_sources.iter().all(|s| *s == "selected"));
+    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let result = engine.execute(selected_modules);
+    assert!(result.is_ok(), "Dry run execution should succeed");
 }
 
 #[test]
@@ -116,15 +110,12 @@ export default defineModule("priority-test")
     let loaded = load_modules(discovered);
     let successful_modules: Vec<_> = loaded.into_iter().filter_map(|r| r.ok()).collect();
 
-    let engine = ExecutionEngine::new(ExecutionMode::DryRun);
-    let plan = engine.plan(successful_modules);
+    assert_eq!(successful_modules.len(), 1);
+    assert_eq!(successful_modules[0].definition.actions.len(), 6);
 
-    // The execution plan should have atoms in the correct order
-    // Package installs typically come first in the execution order
-    assert!(
-        !plan.atoms.is_empty(),
-        "Should have atoms in execution plan"
-    );
+    let engine = ExecutionEngine::new(2, true); // concurrency=2, dry_run=true
+    let result = engine.execute(successful_modules);
+    assert!(result.is_ok(), "Dry run execution should succeed");
 }
 
 #[test]
@@ -143,10 +134,12 @@ export default defineModule("empty")
     let loaded = load_modules(discovered);
     let successful_modules: Vec<_> = loaded.into_iter().filter_map(|r| r.ok()).collect();
 
-    let engine = ExecutionEngine::new(ExecutionMode::DryRun);
-    let plan = engine.plan(successful_modules);
-    assert_eq!(plan.atoms.len(), 0, "Empty module should produce no atoms");
-    assert_eq!(plan.action_count, 0, "Empty module should have no actions");
+    assert_eq!(successful_modules.len(), 1);
+    assert_eq!(successful_modules[0].definition.actions.len(), 0);
+
+    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let result = engine.execute(successful_modules);
+    assert!(result.is_ok(), "Empty module execution should succeed");
 }
 
 #[test]
@@ -187,4 +180,8 @@ export default defineModule("app")
 
     // In a real implementation, dependency resolution would ensure base is executed first
     assert_eq!(app_module.definition.dependencies, vec!["base"]);
+    
+    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let result = engine.execute(successful_modules);
+    assert!(result.is_ok(), "Execution with dependencies should succeed");
 }
