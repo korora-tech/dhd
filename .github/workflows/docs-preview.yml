@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Cloudflare Pages
+    name: Deploy to Cloudflare
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,6 +39,7 @@ jobs:
           workingDirectory: docs
           packageManager: bun
           command: versions upload --message "${{ github.sha }}"
+          wranglerVersion: 4.19.2
 
       - name: Get Version ID
         shell: bash
