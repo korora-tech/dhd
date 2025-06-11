@@ -34,6 +34,7 @@ pub struct PackageInstallConfig {
     pub module: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct PackageInstallAction {
     config: PackageInstallConfig,
     module: String,

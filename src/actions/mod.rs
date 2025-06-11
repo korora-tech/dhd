@@ -11,6 +11,8 @@ pub mod http_download;
 pub mod systemd_socket;
 pub mod systemd_service;
 pub mod compat;
+pub mod conditional;
+pub mod condition;
 
 pub use package_install::PackageInstall;
 pub use link_file::{LinkFile, link_file};
@@ -21,6 +23,12 @@ pub use directory::{Directory, directory};
 pub use http_download::{HttpDownload, http_download};
 pub use systemd_socket::{SystemdSocket, systemd_socket};
 pub use systemd_service::{SystemdService, systemd_service};
+pub use conditional::{ConditionalAction, skip_if, only_if};
+pub use condition::{
+    Condition, 
+    file_exists, directory_exists, command_succeeds, env_var,
+    all_of, any_of, not
+};
 
 #[typescript_enum]
 pub enum ActionType {
@@ -33,6 +41,7 @@ pub enum ActionType {
     HttpDownload(HttpDownload),
     SystemdSocket(SystemdSocket),
     SystemdService(SystemdService),
+    Conditional(ConditionalAction),
 }
 
 pub trait Action {
@@ -52,6 +61,7 @@ impl Action for ActionType {
             ActionType::HttpDownload(action) => action.name(),
             ActionType::SystemdSocket(action) => action.name(),
             ActionType::SystemdService(action) => action.name(),
+            ActionType::Conditional(action) => action.name(),
         }
     }
 
@@ -66,6 +76,7 @@ impl Action for ActionType {
             ActionType::HttpDownload(action) => action.plan(module_dir),
             ActionType::SystemdSocket(action) => action.plan(module_dir),
             ActionType::SystemdService(action) => action.plan(module_dir),
+            ActionType::Conditional(action) => action.plan(module_dir),
         }
     }
 }
