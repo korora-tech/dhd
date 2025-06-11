@@ -1,8 +1,8 @@
-use dhd_macros::{typescript_type, typescript_fn};
 use super::Action;
-use std::path::Path;
 use crate::atoms::AtomCompat;
 use crate::atoms::package::PackageManager;
+use dhd_macros::{typescript_fn, typescript_type};
+use std::path::Path;
 
 /// Remove packages from the system
 #[typescript_type]

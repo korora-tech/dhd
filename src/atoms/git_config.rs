@@ -1,5 +1,5 @@
-use std::process::Command;
 use crate::atoms::Atom;
+use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GitConfigScope {
@@ -24,7 +24,11 @@ pub struct GitConfig {
 
 impl GitConfig {
     pub fn new(entries: Vec<GitConfigEntry>, scope: GitConfigScope, unset: bool) -> Self {
-        Self { entries, scope, unset }
+        Self {
+            entries,
+            scope,
+            unset,
+        }
     }
 
     fn get_scope_arg(&self) -> Option<&'static str> {
@@ -44,11 +48,11 @@ impl Atom for GitConfig {
     fn execute(&self) -> Result<(), String> {
         for entry in &self.entries {
             let mut args = vec!["config"];
-            
+
             if let Some(scope_arg) = self.get_scope_arg() {
                 args.push(scope_arg);
             }
-            
+
             if self.unset {
                 args.push("--unset");
                 args.push(&entry.key);
@@ -90,9 +94,9 @@ impl Atom for GitConfig {
             GitConfigScope::Global => "global",
             GitConfigScope::System => "system",
         };
-        
+
         let action = if self.unset { "Unset" } else { "Set" };
-        
+
         format!(
             "{} {} git configuration ({} entries)",
             action,
@@ -108,16 +112,14 @@ mod tests {
 
     #[test]
     fn test_git_config_creation() {
-        let entries = vec![
-            GitConfigEntry {
-                key: "user.name".to_string(),
-                value: "Test User".to_string(),
-                add: None,
-            },
-        ];
-        
+        let entries = vec![GitConfigEntry {
+            key: "user.name".to_string(),
+            value: "Test User".to_string(),
+            add: None,
+        }];
+
         let git_config = GitConfig::new(entries.clone(), GitConfigScope::Global, false);
-        
+
         assert_eq!(git_config.entries.len(), 1);
         assert_eq!(git_config.scope, GitConfigScope::Global);
         assert_eq!(git_config.unset, false);
@@ -143,22 +145,28 @@ mod tests {
                 add: None,
             },
         ];
-        
+
         let git_config = GitConfig::new(entries, GitConfigScope::Global, false);
-        assert_eq!(git_config.describe(), "Set global git configuration (2 entries)");
-        
+        assert_eq!(
+            git_config.describe(),
+            "Set global git configuration (2 entries)"
+        );
+
         let git_config_unset = GitConfig::new(vec![], GitConfigScope::Local, true);
-        assert_eq!(git_config_unset.describe(), "Unset local git configuration (0 entries)");
+        assert_eq!(
+            git_config_unset.describe(),
+            "Unset local git configuration (0 entries)"
+        );
     }
 
     #[test]
     fn test_get_scope_arg() {
         let git_config_local = GitConfig::new(vec![], GitConfigScope::Local, false);
         assert_eq!(git_config_local.get_scope_arg(), None);
-        
+
         let git_config_global = GitConfig::new(vec![], GitConfigScope::Global, false);
         assert_eq!(git_config_global.get_scope_arg(), Some("--global"));
-        
+
         let git_config_system = GitConfig::new(vec![], GitConfigScope::System, false);
         assert_eq!(git_config_system.get_scope_arg(), Some("--system"));
     }
@@ -177,7 +185,7 @@ mod tests {
                 add: Some(true),
             },
         ];
-        
+
         let git_config = GitConfig::new(entries, GitConfigScope::Global, false);
         assert_eq!(git_config.entries.len(), 2);
         assert_eq!(git_config.entries[0].add, Some(true));

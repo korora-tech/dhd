@@ -1,6 +1,6 @@
+use crate::atoms::AtomCompat;
 use dhd_macros::{typescript_fn, typescript_type};
 use std::path::Path;
-use crate::atoms::AtomCompat;
 
 #[typescript_type]
 pub struct GitConfigEntry {
@@ -38,7 +38,8 @@ impl crate::actions::Action for GitConfig {
             crate::atoms::git_config::GitConfigScope::Local
         };
 
-        let atom_entries: Vec<crate::atoms::git_config::GitConfigEntry> = self.entries
+        let atom_entries: Vec<crate::atoms::git_config::GitConfigEntry> = self
+            .entries
             .iter()
             .map(|e| crate::atoms::git_config::GitConfigEntry {
                 key: e.key.clone(),
@@ -99,13 +100,11 @@ mod tests {
 
     #[test]
     fn test_git_config_helper_function() {
-        let entries = vec![
-            GitConfigEntry {
-                key: "core.editor".to_string(),
-                value: "vim".to_string(),
-                add: None,
-            },
-        ];
+        let entries = vec![GitConfigEntry {
+            key: "core.editor".to_string(),
+            value: "vim".to_string(),
+            add: None,
+        }];
 
         let action = git_config(GitConfig {
             entries,
@@ -139,13 +138,11 @@ mod tests {
 
     #[test]
     fn test_git_config_plan_global() {
-        let entries = vec![
-            GitConfigEntry {
-                key: "user.name".to_string(),
-                value: "Global User".to_string(),
-                add: None,
-            },
-        ];
+        let entries = vec![GitConfigEntry {
+            key: "user.name".to_string(),
+            value: "Global User".to_string(),
+            add: None,
+        }];
 
         let action = GitConfig {
             entries,
@@ -160,13 +157,11 @@ mod tests {
 
     #[test]
     fn test_git_config_plan_system() {
-        let entries = vec![
-            GitConfigEntry {
-                key: "core.autocrlf".to_string(),
-                value: "true".to_string(),
-                add: None,
-            },
-        ];
+        let entries = vec![GitConfigEntry {
+            key: "core.autocrlf".to_string(),
+            value: "true".to_string(),
+            add: None,
+        }];
 
         let action = GitConfig {
             entries,
@@ -181,13 +176,11 @@ mod tests {
 
     #[test]
     fn test_git_config_plan_local() {
-        let entries = vec![
-            GitConfigEntry {
-                key: "remote.origin.url".to_string(),
-                value: "https://github.com/example/repo.git".to_string(),
-                add: None,
-            },
-        ];
+        let entries = vec![GitConfigEntry {
+            key: "remote.origin.url".to_string(),
+            value: "https://github.com/example/repo.git".to_string(),
+            add: None,
+        }];
 
         let action = GitConfig {
             entries,
@@ -239,13 +232,11 @@ mod tests {
 
     #[test]
     fn test_git_config_multi_value() {
-        let entries = vec![
-            GitConfigEntry {
-                key: "credential.https://github.com.helper".to_string(),
-                value: "!/usr/bin/gh auth git-credential".to_string(),
-                add: Some(true),
-            },
-        ];
+        let entries = vec![GitConfigEntry {
+            key: "credential.https://github.com.helper".to_string(),
+            value: "!/usr/bin/gh auth git-credential".to_string(),
+            add: Some(true),
+        }];
 
         let action = GitConfig {
             entries,
@@ -259,13 +250,11 @@ mod tests {
 
     #[test]
     fn test_git_config_unset() {
-        let entries = vec![
-            GitConfigEntry {
-                key: "user.signingkey".to_string(),
-                value: "".to_string(),
-                add: None,
-            },
-        ];
+        let entries = vec![GitConfigEntry {
+            key: "user.signingkey".to_string(),
+            value: "".to_string(),
+            add: None,
+        }];
 
         let action = GitConfig {
             entries,

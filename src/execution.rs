@@ -30,7 +30,7 @@ impl ExecutionEngine {
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("{spinner:.green} Planning modules... [{bar:40.cyan/blue}] {pos}/{len}")
-                .unwrap()
+                .unwrap(),
         );
 
         let mut dag = DagExecutor::new(self.concurrency);
@@ -40,7 +40,8 @@ impl ExecutionEngine {
             pb.set_message(format!("Planning {}", module.definition.name));
 
             for action in module.definition.actions {
-                let atoms = action.plan(std::path::Path::new(&module.source.path).parent().unwrap());
+                let atoms =
+                    action.plan(std::path::Path::new(&module.source.path).parent().unwrap());
                 for atom in atoms {
                     total_atoms += 1;
                     dag.add_atom(atom);
@@ -57,7 +58,10 @@ impl ExecutionEngine {
         dag.build_dependencies()?;
 
         // Execute
-        println!("⚡ Executing {} atoms with {} parallel workers", total_atoms, self.concurrency);
+        println!(
+            "⚡ Executing {} atoms with {} parallel workers",
+            total_atoms, self.concurrency
+        );
 
         let summary = dag.execute(self.dry_run)?;
 
@@ -66,9 +70,10 @@ impl ExecutionEngine {
         self.print_summary(&summary, duration);
 
         if !summary.failed.is_empty() {
-            return Err(DhdError::AtomExecution(
-                format!("{} atoms failed", summary.failed.len())
-            ));
+            return Err(DhdError::AtomExecution(format!(
+                "{} atoms failed",
+                summary.failed.len()
+            )));
         }
 
         Ok(())

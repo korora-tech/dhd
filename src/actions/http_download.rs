@@ -1,7 +1,7 @@
 use dhd_macros::{typescript_fn, typescript_type};
 
-use std::path::{Path, PathBuf};
 use crate::atoms::AtomCompat;
+use std::path::{Path, PathBuf};
 
 #[typescript_type]
 pub struct Checksum {
@@ -30,7 +30,10 @@ impl crate::actions::Action for HttpDownload {
             PathBuf::from(&self.destination)
         };
 
-        let checksum_str = self.checksum.as_ref().map(|c| format!("{}:{}", c.algorithm, c.value));
+        let checksum_str = self
+            .checksum
+            .as_ref()
+            .map(|c| format!("{}:{}", c.algorithm, c.value));
 
         vec![Box::new(AtomCompat::new(
             Box::new(crate::atoms::http_download::HttpDownload::new(
@@ -153,7 +156,9 @@ mod tests {
 
     #[test]
     fn test_http_download_home_expansion() {
-        unsafe { std::env::set_var("HOME", "/home/testuser"); }
+        unsafe {
+            std::env::set_var("HOME", "/home/testuser");
+        }
 
         let action = HttpDownload {
             url: "https://example.com/file.bin".to_string(),

@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-use std::fs;
-use std::process::Command;
 use crate::atoms::Atom;
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Debug, Clone)]
 pub struct HttpDownload {
@@ -12,7 +12,12 @@ pub struct HttpDownload {
 }
 
 impl HttpDownload {
-    pub fn new(url: String, destination: PathBuf, checksum: Option<String>, mode: Option<u32>) -> Self {
+    pub fn new(
+        url: String,
+        destination: PathBuf,
+        checksum: Option<String>,
+        mode: Option<u32>,
+    ) -> Self {
         Self {
             url,
             destination,
@@ -41,10 +46,12 @@ impl Atom for HttpDownload {
             .args(["-L", "-o", &self.destination.to_string_lossy(), &self.url])
             .output()
             .map_err(|e| format!("Failed to download file: {}", e))?;
-        
+
         if !output.status.success() {
-            return Err(format!("Failed to download file: {}", 
-                String::from_utf8_lossy(&output.stderr)));
+            return Err(format!(
+                "Failed to download file: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
 
         // Verify checksum if provided
@@ -53,10 +60,12 @@ impl Atom for HttpDownload {
                 .arg(&self.destination)
                 .output()
                 .map_err(|e| format!("Failed to calculate checksum: {}", e))?;
-            
+
             if !output.status.success() {
-                return Err(format!("Failed to calculate checksum: {}", 
-                    String::from_utf8_lossy(&output.stderr)));
+                return Err(format!(
+                    "Failed to calculate checksum: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ));
             }
 
             let actual_checksum = String::from_utf8_lossy(&output.stdout)
@@ -68,8 +77,10 @@ impl Atom for HttpDownload {
             if &actual_checksum != expected_checksum {
                 // Remove the downloaded file
                 let _ = fs::remove_file(&self.destination);
-                return Err(format!("Checksum mismatch: expected {}, got {}", 
-                    expected_checksum, actual_checksum));
+                return Err(format!(
+                    "Checksum mismatch: expected {}, got {}",
+                    expected_checksum, actual_checksum
+                ));
             }
         }
 
@@ -86,7 +97,7 @@ impl Atom for HttpDownload {
                     .map_err(|e| format!("Failed to set file permissions: {}", e))?;
             }
         }
-        
+
         Ok(())
     }
 

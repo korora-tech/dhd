@@ -1,6 +1,6 @@
-use std::process::Command;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 use tempfile::TempDir;
 
 #[test]
@@ -34,44 +34,43 @@ fn test_generate_types_command() {
         .expect("Failed to execute command");
 
     assert!(output.status.success());
-    
+
     // Check that types.d.ts was created
     assert!(Path::new(types_file).exists());
-    
+
     // Read and verify the content
-    let content = fs::read_to_string(types_file)
-        .expect("Failed to read generated types.d.ts");
-    
+    let content = fs::read_to_string(types_file).expect("Failed to read generated types.d.ts");
+
     // Verify basic structure
     assert!(content.contains("// Generated TypeScript definitions for DHD"));
     assert!(content.contains("declare global"));
     assert!(content.contains("interface ModuleBuilder"));
     assert!(content.contains("function defineModule"));
     assert!(content.contains("type ActionType"));
-    
+
     // Verify our key types
     assert!(content.contains("ModuleBuilder"));
     assert!(content.contains("ModuleDefinition"));
     assert!(content.contains("PackageInstall"));
-    
+
     // Verify the file ends with export {} to make it a module
     assert!(content.contains("export {};"));
     assert!(content.contains("LinkFile"));
     assert!(content.contains("ExecuteCommand"));
-    
+
     // Verify that tsconfig.json was also created
     let tsconfig_file = "tsconfig.json";
     assert!(Path::new(tsconfig_file).exists());
-    
-    let tsconfig_content = fs::read_to_string(tsconfig_file)
-        .expect("Failed to read generated tsconfig.json");
+
+    let tsconfig_content =
+        fs::read_to_string(tsconfig_file).expect("Failed to read generated tsconfig.json");
     assert!(tsconfig_content.contains("types.d.ts"));
     assert!(tsconfig_content.contains("**/*.ts"));
-    
+
     // Verify methods are included
     assert!(content.contains("description(desc: string): this"));
     assert!(content.contains("actions(actions: ActionType[]): ModuleDefinition"));
-    
+
     // Clean up
     fs::remove_file(types_file).ok();
     fs::remove_file(tsconfig_file).ok();
@@ -102,24 +101,24 @@ fn test_generate_command_without_subcommand() {
 #[test]
 fn test_list_command_empty_directory() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // First build the binary
     Command::new("cargo")
         .args(&["build", "--quiet"])
         .output()
         .expect("Failed to build");
-    
+
     let binary_path = env!("CARGO_BIN_EXE_dhd");
     let output = Command::new(binary_path)
         .args(&["list"])
         .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute command");
-    
+
     if !output.status.success() {
         eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
     }
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("No TypeScript modules found"));
@@ -127,37 +126,37 @@ fn test_list_command_empty_directory() {
 
 #[test]
 fn test_list_command_with_modules() {
-    
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create some test TypeScript files with valid module definitions
     std::fs::write(
         temp_dir.path().join("app.ts"),
-        r#"export default { name: "app-module", description: "Application module", actions: [] };"#
-    ).unwrap();
-    
+        r#"export default { name: "app-module", description: "Application module", actions: [] };"#,
+    )
+    .unwrap();
+
     std::fs::write(
         temp_dir.path().join("config.ts"),
         r#"export default { name: "config-module", description: "Configuration module", actions: [] };"#
     ).unwrap();
-    
+
     // First build the binary
     Command::new("cargo")
         .args(&["build", "--quiet"])
         .output()
         .expect("Failed to build");
-    
+
     let binary_path = env!("CARGO_BIN_EXE_dhd");
     let output = Command::new(binary_path)
         .args(&["list"])
         .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute command");
-    
+
     if !output.status.success() {
         eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
     }
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Found 2 TypeScript module(s):"));

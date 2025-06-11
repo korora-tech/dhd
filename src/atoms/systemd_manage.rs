@@ -1,5 +1,5 @@
-use std::process::Command;
 use crate::atoms::Atom;
+use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SystemdOperation {
@@ -30,7 +30,7 @@ impl SystemdManage {
 
     fn get_systemctl_args(&self) -> Vec<&str> {
         let mut args = Vec::new();
-        
+
         if self.scope == "user" {
             args.push("--user");
         }
@@ -79,7 +79,7 @@ impl Atom for SystemdManage {
 
     fn execute(&self) -> Result<(), String> {
         let args = self.get_systemctl_args();
-        
+
         let output = Command::new("systemctl")
             .args(&args)
             .output()
@@ -133,7 +133,7 @@ mod tests {
             SystemdOperation::Enable,
             "user".to_string(),
         );
-        
+
         assert_eq!(manage.name, "test.service");
         assert_eq!(manage.operation, SystemdOperation::Enable);
         assert_eq!(manage.scope, "user");
@@ -146,28 +146,43 @@ mod tests {
             SystemdOperation::Start,
             "system".to_string(),
         );
-        
+
         assert_eq!(manage.name(), "SystemdManage");
     }
 
     #[test]
     fn test_systemd_manage_describe() {
         let test_cases = vec![
-            (SystemdOperation::Enable, "Enable systemd service: test.service"),
-            (SystemdOperation::Disable, "Disable systemd service: test.service"),
-            (SystemdOperation::Start, "Start systemd service: test.service"),
+            (
+                SystemdOperation::Enable,
+                "Enable systemd service: test.service",
+            ),
+            (
+                SystemdOperation::Disable,
+                "Disable systemd service: test.service",
+            ),
+            (
+                SystemdOperation::Start,
+                "Start systemd service: test.service",
+            ),
             (SystemdOperation::Stop, "Stop systemd service: test.service"),
-            (SystemdOperation::Restart, "Restart systemd service: test.service"),
-            (SystemdOperation::EnableNow, "Enable and start systemd service: test.service"),
-            (SystemdOperation::DisableNow, "Disable and stop systemd service: test.service"),
+            (
+                SystemdOperation::Restart,
+                "Restart systemd service: test.service",
+            ),
+            (
+                SystemdOperation::EnableNow,
+                "Enable and start systemd service: test.service",
+            ),
+            (
+                SystemdOperation::DisableNow,
+                "Disable and stop systemd service: test.service",
+            ),
         ];
 
         for (operation, expected) in test_cases {
-            let manage = SystemdManage::new(
-                "test.service".to_string(),
-                operation,
-                "user".to_string(),
-            );
+            let manage =
+                SystemdManage::new("test.service".to_string(), operation, "user".to_string());
             assert_eq!(manage.describe(), expected);
         }
     }
@@ -179,7 +194,7 @@ mod tests {
             SystemdOperation::Enable,
             "user".to_string(),
         );
-        
+
         let args = manage.get_systemctl_args();
         assert_eq!(args, vec!["--user", "enable", "test.service"]);
     }
@@ -191,7 +206,7 @@ mod tests {
             SystemdOperation::Start,
             "system".to_string(),
         );
-        
+
         let args = manage.get_systemctl_args();
         assert_eq!(args, vec!["start", "test.service"]);
     }
@@ -203,7 +218,7 @@ mod tests {
             SystemdOperation::EnableNow,
             "user".to_string(),
         );
-        
+
         let args = manage.get_systemctl_args();
         assert_eq!(args, vec!["--user", "enable", "--now", "app.service"]);
     }
@@ -215,7 +230,7 @@ mod tests {
             SystemdOperation::DisableNow,
             "system".to_string(),
         );
-        
+
         let args = manage.get_systemctl_args();
         assert_eq!(args, vec!["disable", "--now", "daemon.service"]);
     }

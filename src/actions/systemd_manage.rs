@@ -1,6 +1,6 @@
+use crate::atoms::AtomCompat;
 use dhd_macros::{typescript_fn, typescript_type};
 use std::path::Path;
-use crate::atoms::AtomCompat;
 
 #[typescript_type]
 pub struct SystemdManage {
@@ -104,7 +104,13 @@ mod tests {
     #[test]
     fn test_systemd_manage_operations() {
         let operations = vec![
-            "enable", "disable", "start", "stop", "restart", "enable-now", "disable-now"
+            "enable",
+            "disable",
+            "start",
+            "stop",
+            "restart",
+            "enable-now",
+            "disable-now",
         ];
 
         for op in operations {

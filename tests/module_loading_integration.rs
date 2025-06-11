@@ -1,11 +1,11 @@
 use dhd::{discover_modules, load_modules};
-use tempfile::TempDir;
 use std::fs;
+use tempfile::TempDir;
 
 #[test]
 fn test_load_module_with_tags() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let module_content = r#"
 export default defineModule("test-app")
     .description("A test application")
@@ -14,15 +14,15 @@ export default defineModule("test-app")
         packageInstall({ names: ["test-app"] })
     ]);
 "#;
-    
+
     fs::write(temp_dir.path().join("test-app.ts"), module_content).unwrap();
-    
+
     let discovered = discover_modules(temp_dir.path()).unwrap();
     assert_eq!(discovered.len(), 1);
-    
+
     let loaded = load_modules(discovered);
     assert_eq!(loaded.len(), 1);
-    
+
     let module = &loaded[0].as_ref().unwrap().definition;
     assert_eq!(module.name, "test-app");
     assert_eq!(module.description, Some("A test application".to_string()));
@@ -32,7 +32,7 @@ export default defineModule("test-app")
 #[test]
 fn test_load_module_with_dependencies() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let module_content = r#"
 export default defineModule("niri")
     .description("Window manager")
@@ -41,12 +41,12 @@ export default defineModule("niri")
         packageInstall({ names: ["niri"] })
     ]);
 "#;
-    
+
     fs::write(temp_dir.path().join("niri.ts"), module_content).unwrap();
-    
+
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    
+
     let module = &loaded[0].as_ref().unwrap().definition;
     assert_eq!(module.name, "niri");
     assert_eq!(module.dependencies, vec!["waybar", "swaync", "fuzzel"]);
@@ -55,7 +55,7 @@ export default defineModule("niri")
 #[test]
 fn test_load_module_with_all_features() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let module_content = r#"
 export default defineModule("complex-app")
     .description("A complex application with all features")
@@ -78,12 +78,12 @@ export default defineModule("complex-app")
         })
     ]);
 "#;
-    
+
     fs::write(temp_dir.path().join("complex-app.ts"), module_content).unwrap();
-    
+
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    
+
     let module = &loaded[0].as_ref().unwrap().definition;
     assert_eq!(module.name, "complex-app");
     assert_eq!(module.tags.len(), 2);
@@ -93,9 +93,9 @@ export default defineModule("complex-app")
 
 #[test]
 fn test_module_dependency_ordering() {
-    use dhd::{LoadedModule, DiscoveredModule, ModuleDefinition};
+    use dhd::{DiscoveredModule, LoadedModule, ModuleDefinition};
     use std::path::PathBuf;
-    
+
     // Create modules with dependencies
     let modules = vec![
         LoadedModule {
@@ -151,7 +151,7 @@ fn test_module_dependency_ordering() {
             },
         },
     ];
-    
+
     // TODO: When dependency resolution is implemented, verify the order
     // For now, just verify we can create modules with dependencies
     assert_eq!(modules[0].definition.dependencies.len(), 2);
@@ -162,7 +162,7 @@ fn test_module_dependency_ordering() {
 #[test]
 fn test_load_module_with_method_chaining() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Test the fluent API with method chaining
     let module_content = r#"
 import { defineModule, packageInstall } from "dhd";
@@ -177,12 +177,12 @@ export default defineModule("chained")
         packageInstall({ names: ["pkg1"] })
     ]);
 "#;
-    
+
     fs::write(temp_dir.path().join("chained.ts"), module_content).unwrap();
-    
+
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    
+
     let module = &loaded[0].as_ref().unwrap().definition;
     assert_eq!(module.name, "chained");
     // Tags should accumulate
@@ -198,9 +198,9 @@ export default defineModule("chained")
 
 #[test]
 fn test_filter_modules_by_tags() {
-    use dhd::{LoadedModule, DiscoveredModule, ModuleDefinition};
+    use dhd::{DiscoveredModule, LoadedModule, ModuleDefinition};
     use std::path::PathBuf;
-    
+
     let modules = vec![
         LoadedModule {
             source: DiscoveredModule {
@@ -242,15 +242,17 @@ fn test_filter_modules_by_tags() {
             },
         },
     ];
-    
+
     // Filter modules by tag
-    let desktop_modules: Vec<_> = modules.iter()
+    let desktop_modules: Vec<_> = modules
+        .iter()
         .filter(|m| m.definition.tags.contains(&"desktop".to_string()))
         .collect();
     assert_eq!(desktop_modules.len(), 1);
     assert_eq!(desktop_modules[0].definition.name, "desktop-app");
-    
-    let dev_modules: Vec<_> = modules.iter()
+
+    let dev_modules: Vec<_> = modules
+        .iter()
         .filter(|m| m.definition.tags.contains(&"development".to_string()))
         .collect();
     assert_eq!(dev_modules.len(), 2);
@@ -259,7 +261,7 @@ fn test_filter_modules_by_tags() {
 #[test]
 fn test_module_action_counting() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let module_content = r#"
 export default defineModule("multi-action")
     .description("Module with multiple actions")
@@ -271,12 +273,12 @@ export default defineModule("multi-action")
         executeCommand({ command: "tool2", args: ["--setup"] })
     ]);
 "#;
-    
+
     fs::write(temp_dir.path().join("multi-action.ts"), module_content).unwrap();
-    
+
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    
+
     assert_eq!(loaded.len(), 1);
     let module = &loaded[0].as_ref().unwrap().definition;
     assert_eq!(module.actions.len(), 5, "Module should have 5 actions");
@@ -285,19 +287,19 @@ export default defineModule("multi-action")
 #[test]
 fn test_empty_module_actions() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let module_content = r#"
 export default defineModule("empty")
     .description("Module with no actions")
     .tags("test")
     .actions([]);
 "#;
-    
+
     fs::write(temp_dir.path().join("empty.ts"), module_content).unwrap();
-    
+
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    
+
     assert_eq!(loaded.len(), 1);
     let module = &loaded[0].as_ref().unwrap().definition;
     assert_eq!(module.actions.len(), 0, "Module should have 0 actions");
@@ -306,7 +308,7 @@ export default defineModule("empty")
 #[test]
 fn test_module_with_all_action_types() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let module_content = r#"
 export default defineModule("all-actions")
     .description("Module demonstrating all action types")
@@ -317,13 +319,17 @@ export default defineModule("all-actions")
         directory({ path: "/test/dir" })
     ]);
 "#;
-    
+
     fs::write(temp_dir.path().join("all-actions.ts"), module_content).unwrap();
-    
+
     let discovered = discover_modules(temp_dir.path()).unwrap();
     let loaded = load_modules(discovered);
-    
+
     assert_eq!(loaded.len(), 1);
     let module = &loaded[0].as_ref().unwrap().definition;
-    assert_eq!(module.actions.len(), 4, "Module should have 4 different action types");
+    assert_eq!(
+        module.actions.len(),
+        4,
+        "Module should have 4 different action types"
+    );
 }

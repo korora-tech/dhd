@@ -19,7 +19,7 @@ impl RunCommand {
         {
             return Ok("pkexec".to_string());
         }
-        
+
         // Check for sudo (common on Unix-like systems)
         if std::process::Command::new("which")
             .arg("sudo")
@@ -29,7 +29,7 @@ impl RunCommand {
         {
             return Ok("sudo".to_string());
         }
-        
+
         // Check for doas (OpenBSD/some BSDs)
         if std::process::Command::new("which")
             .arg("doas")
@@ -39,13 +39,13 @@ impl RunCommand {
         {
             return Ok("doas".to_string());
         }
-        
+
         // Windows - would need runas or similar
         #[cfg(target_os = "windows")]
         {
             return Err("Privilege escalation on Windows is not yet supported".to_string());
         }
-        
+
         Err("No suitable privilege escalation tool found (tried: pkexec, sudo, doas)".to_string())
     }
 }
@@ -85,7 +85,10 @@ impl Atom for RunCommand {
 
     fn describe(&self) -> String {
         if self.escalate {
-            format!("Run command (elevated): {} -c '{}'", self.shell, self.command)
+            format!(
+                "Run command (elevated): {} -c '{}'",
+                self.shell, self.command
+            )
         } else {
             format!("Run command: {} -c '{}'", self.shell, self.command)
         }
@@ -113,7 +116,7 @@ mod tests {
             command: "echo test".to_string(),
             escalate: false,
         };
-        
+
         let cloned = atom.clone();
         assert_eq!(cloned.shell, atom.shell);
         assert_eq!(cloned.command, atom.command);
@@ -127,7 +130,7 @@ mod tests {
             command: "echo 'test' > /dev/null".to_string(),
             escalate: false,
         };
-        
+
         let result = atom.execute();
         assert!(result.is_ok());
     }
@@ -139,7 +142,7 @@ mod tests {
             command: "exit 1".to_string(),
             escalate: false,
         };
-        
+
         let result = atom.execute();
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -153,7 +156,7 @@ mod tests {
             command: "nonexistent_command_that_should_not_exist".to_string(),
             escalate: false,
         };
-        
+
         let result = atom.execute();
         assert!(result.is_err());
     }
@@ -165,7 +168,7 @@ mod tests {
             command: "echo test".to_string(),
             escalate: false,
         };
-        
+
         let result = atom.execute();
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Failed to execute command"));
@@ -178,7 +181,7 @@ mod tests {
             command: "echo 'error' >&2 && exit 1".to_string(),
             escalate: false,
         };
-        
+
         let result = atom.execute();
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -188,26 +191,26 @@ mod tests {
 
     #[test]
     fn test_run_command_execute_complex_command() {
-        use tempfile::TempDir;
         use std::fs;
-        
+        use tempfile::TempDir;
+
         let temp_dir = TempDir::new().unwrap();
         let test_file = temp_dir.path().join("test.txt");
-        
+
         let atom = RunCommand {
             shell: "sh".to_string(),
             command: format!("echo 'hello world' > {}", test_file.display()),
             escalate: false,
         };
-        
+
         let result = atom.execute();
         assert!(result.is_ok());
-        
+
         // Verify the command actually ran
         let content = fs::read_to_string(&test_file).unwrap();
         assert_eq!(content.trim(), "hello world");
     }
-    
+
     #[test]
     fn test_run_command_describe_with_escalate() {
         let atom = RunCommand {
@@ -215,13 +218,19 @@ mod tests {
             command: "apt update".to_string(),
             escalate: true,
         };
-        assert_eq!(atom.describe(), "Run command (elevated): bash -c 'apt update'");
-        
+        assert_eq!(
+            atom.describe(),
+            "Run command (elevated): bash -c 'apt update'"
+        );
+
         let atom_no_escalate = RunCommand {
             shell: "bash".to_string(),
             command: "echo hello".to_string(),
             escalate: false,
         };
-        assert_eq!(atom_no_escalate.describe(), "Run command: bash -c 'echo hello'");
+        assert_eq!(
+            atom_no_escalate.describe(),
+            "Run command: bash -c 'echo hello'"
+        );
     }
 }

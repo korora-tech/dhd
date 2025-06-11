@@ -1,6 +1,6 @@
-use dhd_macros::{typescript_type, typescript_fn};
-use std::path::{Path, PathBuf};
 use crate::atoms::AtomCompat;
+use dhd_macros::{typescript_fn, typescript_type};
+use std::path::{Path, PathBuf};
 
 #[typescript_type]
 pub struct CopyFile {

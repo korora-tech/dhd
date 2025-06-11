@@ -1,7 +1,7 @@
 use dhd_macros::{typescript_fn, typescript_type};
 
-use std::path::{Path, PathBuf};
 use crate::atoms::AtomCompat;
+use std::path::{Path, PathBuf};
 
 #[typescript_type]
 pub struct Directory {
@@ -107,7 +107,9 @@ mod tests {
 
     #[test]
     fn test_directory_home_expansion() {
-        unsafe { std::env::set_var("HOME", "/home/testuser"); }
+        unsafe {
+            std::env::set_var("HOME", "/home/testuser");
+        }
 
         let action = Directory {
             path: "~/test".to_string(),

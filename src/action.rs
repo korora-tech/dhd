@@ -6,13 +6,13 @@ use std::any::Any;
 pub trait Action: Send + Sync {
     /// Plan this action into a series of atoms to execute
     fn plan(&self) -> anyhow::Result<Vec<Box<dyn Atom>>>;
-    
+
     /// Get a human-readable description of this action
     fn describe(&self) -> String;
-    
+
     /// Get the module this action belongs to
     fn module(&self) -> &str;
-    
+
     /// Convert to Any for downcasting
     fn as_any(&self) -> &dyn Any;
 }
@@ -60,32 +60,37 @@ pub enum LinuxSelect<T> {
 impl<T: Clone> PlatformSelect<T> {
     /// Resolve the platform-specific value for the current platform
     pub fn resolve(&self) -> Option<T> {
-        use crate::platform::{current_platform, Platform, LinuxDistro};
-        
+        use crate::platform::{LinuxDistro, Platform, current_platform};
+
         match self {
             PlatformSelect::All(value) => Some(value.clone()),
-            PlatformSelect::Platform { linux, mac, windows } => {
-                match current_platform() {
-                    Platform::Linux(distro) => {
-                        linux.as_ref().and_then(|l| match l {
-                            LinuxSelect::All(value) => Some(value.clone()),
-                            LinuxSelect::Distro { ubuntu, debian, fedora, arch, nixos, other } => {
-                                match distro {
-                                    LinuxDistro::Ubuntu => ubuntu.clone(),
-                                    LinuxDistro::Debian => debian.clone(),
-                                    LinuxDistro::Fedora => fedora.clone(),
-                                    LinuxDistro::Arch => arch.clone(),
-                                    LinuxDistro::NixOS => nixos.clone(),
-                                    LinuxDistro::Other => other.clone(),
-                                }
-                            }
-                        })
-                    }
-                    Platform::MacOS => mac.clone(),
-                    Platform::Windows => windows.clone(),
-                    Platform::Unknown => None,
-                }
-            }
+            PlatformSelect::Platform {
+                linux,
+                mac,
+                windows,
+            } => match current_platform() {
+                Platform::Linux(distro) => linux.as_ref().and_then(|l| match l {
+                    LinuxSelect::All(value) => Some(value.clone()),
+                    LinuxSelect::Distro {
+                        ubuntu,
+                        debian,
+                        fedora,
+                        arch,
+                        nixos,
+                        other,
+                    } => match distro {
+                        LinuxDistro::Ubuntu => ubuntu.clone(),
+                        LinuxDistro::Debian => debian.clone(),
+                        LinuxDistro::Fedora => fedora.clone(),
+                        LinuxDistro::Arch => arch.clone(),
+                        LinuxDistro::NixOS => nixos.clone(),
+                        LinuxDistro::Other => other.clone(),
+                    },
+                }),
+                Platform::MacOS => mac.clone(),
+                Platform::Windows => windows.clone(),
+                Platform::Unknown => None,
+            },
         }
     }
 }

@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-use std::fs;
-use std::process::Command;
 use crate::atoms::Atom;
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Debug, Clone)]
 pub struct CreateDirectory {
@@ -33,17 +33,19 @@ impl Atom for CreateDirectory {
                 .args(["mkdir", "-p", &self.path.to_string_lossy()])
                 .output()
                 .map_err(|e| format!("Failed to create directory: {}", e))?;
-            
+
             if !output.status.success() {
-                return Err(format!("Failed to create directory: {}", 
-                    String::from_utf8_lossy(&output.stderr)));
+                return Err(format!(
+                    "Failed to create directory: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ));
             }
         } else {
-            fs::create_dir_all(&self.path)
-                .map_err(|e| format!("Failed to create directory {}: {}", 
-                    self.path.display(), e))?;
+            fs::create_dir_all(&self.path).map_err(|e| {
+                format!("Failed to create directory {}: {}", self.path.display(), e)
+            })?;
         }
-        
+
         Ok(())
     }
 

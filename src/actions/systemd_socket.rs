@@ -1,7 +1,7 @@
 use dhd_macros::{typescript_fn, typescript_type};
 
-use std::path::Path;
 use crate::atoms::AtomCompat;
+use std::path::Path;
 
 #[typescript_type]
 pub struct SystemdSocket {

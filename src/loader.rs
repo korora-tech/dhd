@@ -1,12 +1,16 @@
-use std::fs;
-use crate::module::ModuleDefinition;
-use crate::discovery::DiscoveredModule;
-use crate::actions::{ActionType, PackageInstall, LinkFile, LinkDirectory, ExecuteCommand, CopyFile, Directory, HttpDownload, SystemdService, SystemdSocket, DconfImport, InstallGnomeExtensions, PackageRemove, SystemdManage, GitConfig, git_config::GitConfigEntry};
+use crate::actions::{
+    ActionType, CopyFile, DconfImport, Directory, ExecuteCommand, GitConfig, HttpDownload,
+    InstallGnomeExtensions, LinkDirectory, LinkFile, PackageInstall, PackageRemove, SystemdManage,
+    SystemdService, SystemdSocket, git_config::GitConfigEntry,
+};
 use crate::atoms::package::PackageManager;
+use crate::discovery::DiscoveredModule;
+use crate::module::ModuleDefinition;
 use oxc_allocator::Allocator;
+use oxc_ast::ast::*;
 use oxc_parser::Parser;
 use oxc_span::SourceType;
-use oxc_ast::ast::*;
+use std::fs;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadedModule {
@@ -37,30 +41,35 @@ pub fn load_module(discovered: &DiscoveredModule) -> Result<LoadedModule, LoadEr
     // Read the file content
     let content = fs::read_to_string(&discovered.path)
         .map_err(|e| LoadError::IoError(format!("Failed to read file: {}", e)))?;
-    
+
     if content.trim().is_empty() {
         return Err(LoadError::ParseError("Empty file".to_string()));
     }
-    
+
     // Parse with oxc
     let allocator = Allocator::default();
     let source_type = SourceType::from_path(&discovered.path).unwrap_or(SourceType::default());
     let ret = Parser::new(&allocator, &content, source_type).parse();
-    
+
     if !ret.errors.is_empty() {
-        let error_msg = ret.errors.iter()
+        let error_msg = ret
+            .errors
+            .iter()
             .map(|e| format!("{:?}", e))
             .collect::<Vec<_>>()
             .join(", ");
-        return Err(LoadError::ParseError(format!("Failed to parse TypeScript: {}", error_msg)));
+        return Err(LoadError::ParseError(format!(
+            "Failed to parse TypeScript: {}",
+            error_msg
+        )));
     }
-    
+
     let program = ret.program;
-    
+
     // Look for default export
     let module_def = extract_module_definition(&program)
         .ok_or_else(|| LoadError::ValidationError("No valid export default found".to_string()))?;
-    
+
     Ok(LoadedModule {
         source: discovered.clone(),
         definition: module_def,
@@ -71,7 +80,7 @@ fn extract_module_definition(program: &Program) -> Option<ModuleDefinition> {
     // Look for two patterns:
     // 1. export default defineModule("name").description("...").actions([...])
     // 2. export default { name: "...", description: "...", actions: [...] }
-    
+
     for stmt in &program.body {
         if let Statement::ExportDefaultDeclaration(export) = stmt {
             // Check if it's an expression
@@ -87,14 +96,14 @@ fn extract_module_definition(program: &Program) -> Option<ModuleDefinition> {
             }
         }
     }
-    
+
     None
 }
 
 fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
     // Parse defineModule("name").description("...").actions([...])
     // We expect the outermost expression to be the last method call in the chain
-    
+
     let mut module_def = ModuleDefinition {
         name: String::new(),
         description: None,
@@ -102,11 +111,11 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
         dependencies: Vec::new(),
         actions: Vec::new(),
     };
-    
+
     // Start from the outermost call and work inward
     let mut current_expr = expr;
     let mut method_calls = Vec::new();
-    
+
     // Collect all method calls in the chain
     loop {
         if let Expression::CallExpression(call) = current_expr {
@@ -127,10 +136,10 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
             break;
         }
     }
-    
+
     // Process in reverse order (defineModule -> description -> actions)
     method_calls.reverse();
-    
+
     // First should be defineModule
     if let Some((method_name, args)) = method_calls.first() {
         if method_name != "defineModule" {
@@ -146,7 +155,7 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
     } else {
         return None;
     }
-    
+
     // Process remaining method calls
     for (method_name, args) in method_calls.iter().skip(1) {
         match method_name.as_str() {
@@ -197,14 +206,13 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
             _ => {}
         }
     }
-    
+
     if module_def.name.is_empty() {
         None
     } else {
         Some(module_def)
     }
 }
-
 
 fn get_property_name(member: &MemberExpression) -> Option<String> {
     match member {
@@ -220,7 +228,7 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
     if let Expression::CallExpression(call) = expr {
         if let Expression::Identifier(ident) = &call.callee {
             let action_name = ident.name.as_str();
-            
+
             if call.arguments.len() == 1 {
                 if let Some(arg_expr) = call.arguments[0].as_expression() {
                     if let Expression::ObjectExpression(obj) = arg_expr {
@@ -228,33 +236,58 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             "packageInstall" => {
                                 let names = get_string_array_prop(obj, "names")?;
                                 let manager = get_package_manager(obj, "manager");
-                                return Some(ActionType::PackageInstall(PackageInstall { names, manager }));
+                                return Some(ActionType::PackageInstall(PackageInstall {
+                                    names,
+                                    manager,
+                                }));
                             }
                             "linkDotfile" | "linkFile" => {
                                 // Support both old linkDotfile and new linkFile names
-                                let source = get_string_prop(obj, "source").or_else(|| get_string_prop(obj, "from"))?;
-                                let target = get_string_prop(obj, "target").or_else(|| get_string_prop(obj, "to"))?;
+                                let source = get_string_prop(obj, "source")
+                                    .or_else(|| get_string_prop(obj, "from"))?;
+                                let target = get_string_prop(obj, "target")
+                                    .or_else(|| get_string_prop(obj, "to"))?;
                                 let force = get_bool_prop(obj, "force").unwrap_or(false);
-                                return Some(ActionType::LinkFile(LinkFile { source, target, force }));
+                                return Some(ActionType::LinkFile(LinkFile {
+                                    source,
+                                    target,
+                                    force,
+                                }));
                             }
                             "linkDirectory" => {
                                 let from = get_string_prop(obj, "from")?;
                                 let to = get_string_prop(obj, "to")?;
                                 let force = get_bool_prop(obj, "force").unwrap_or(false);
-                                return Some(ActionType::LinkDirectory(LinkDirectory { source: from, target: to, force }));
+                                return Some(ActionType::LinkDirectory(LinkDirectory {
+                                    source: from,
+                                    target: to,
+                                    force,
+                                }));
                             }
                             "executeCommand" => {
                                 let shell = get_string_prop(obj, "shell");
                                 let command = get_string_prop(obj, "command")?;
                                 let args = get_array_of_strings(obj, "args");
                                 let escalate = get_bool_prop(obj, "escalate").unwrap_or(false);
-                                return Some(ActionType::ExecuteCommand(ExecuteCommand { shell, command, args, escalate }));
+                                return Some(ActionType::ExecuteCommand(ExecuteCommand {
+                                    shell,
+                                    command,
+                                    args,
+                                    escalate,
+                                }));
                             }
                             "copyFile" => {
                                 let source = get_string_prop(obj, "source")?;
-                                let target = get_string_prop(obj, "target").or_else(|| get_string_prop(obj, "destination"))?;
-                                let escalate = get_bool_prop(obj, "escalate").or_else(|| get_bool_prop(obj, "requiresPrivilegeEscalation")).unwrap_or(false);
-                                return Some(ActionType::CopyFile(CopyFile { source, target, escalate }));
+                                let target = get_string_prop(obj, "target")
+                                    .or_else(|| get_string_prop(obj, "destination"))?;
+                                let escalate = get_bool_prop(obj, "escalate")
+                                    .or_else(|| get_bool_prop(obj, "requiresPrivilegeEscalation"))
+                                    .unwrap_or(false);
+                                return Some(ActionType::CopyFile(CopyFile {
+                                    source,
+                                    target,
+                                    escalate,
+                                }));
                             }
                             "directory" => {
                                 let path = get_string_prop(obj, "path")?;
@@ -266,7 +299,12 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                                 let destination = get_string_prop(obj, "destination")?;
                                 let checksum = None; // TODO: Parse checksum object if provided
                                 let mode = get_number_prop(obj, "mode").map(|n| n as u32);
-                                return Some(ActionType::HttpDownload(HttpDownload { url, destination, checksum, mode }));
+                                return Some(ActionType::HttpDownload(HttpDownload {
+                                    url,
+                                    destination,
+                                    checksum,
+                                    mode,
+                                }));
                             }
                             "systemdService" => {
                                 let name = get_string_prop(obj, "name")?;
@@ -275,28 +313,51 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                                 let service_type = get_string_prop(obj, "serviceType")?;
                                 let scope = get_string_prop(obj, "scope")?;
                                 let restart = get_string_prop(obj, "restart");
-                                let restart_sec = get_number_prop(obj, "restartSec").map(|n| n as u32);
-                                return Some(ActionType::SystemdService(SystemdService { name, description, exec_start, service_type, scope, restart, restart_sec }));
+                                let restart_sec =
+                                    get_number_prop(obj, "restartSec").map(|n| n as u32);
+                                return Some(ActionType::SystemdService(SystemdService {
+                                    name,
+                                    description,
+                                    exec_start,
+                                    service_type,
+                                    scope,
+                                    restart,
+                                    restart_sec,
+                                }));
                             }
                             "systemdSocket" => {
                                 let name = get_string_prop(obj, "name")?;
                                 let description = get_string_prop(obj, "description")?;
                                 let listen_stream = get_string_prop(obj, "listenStream")?;
                                 let scope = get_string_prop(obj, "scope")?;
-                                return Some(ActionType::SystemdSocket(SystemdSocket { name, description, listen_stream, scope }));
+                                return Some(ActionType::SystemdSocket(SystemdSocket {
+                                    name,
+                                    description,
+                                    listen_stream,
+                                    scope,
+                                }));
                             }
                             "systemdManage" => {
                                 let name = get_string_prop(obj, "name")?;
                                 let operation = get_string_prop(obj, "operation")?;
                                 let scope = get_string_prop(obj, "scope")?;
-                                return Some(ActionType::SystemdManage(SystemdManage { name, operation, scope }));
+                                return Some(ActionType::SystemdManage(SystemdManage {
+                                    name,
+                                    operation,
+                                    scope,
+                                }));
                             }
                             "gitConfig" => {
                                 let entries = get_git_config_entries(obj, "entries")?;
                                 let global = get_bool_prop(obj, "global");
                                 let system = get_bool_prop(obj, "system");
                                 let unset = get_bool_prop(obj, "unset");
-                                return Some(ActionType::GitConfig(GitConfig { entries, global, system, unset }));
+                                return Some(ActionType::GitConfig(GitConfig {
+                                    entries,
+                                    global,
+                                    system,
+                                    unset,
+                                }));
                             }
                             _ => {}
                         }
@@ -305,7 +366,7 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
             }
         }
     }
-    
+
     None
 }
 
@@ -317,7 +378,7 @@ fn get_string_prop(obj: &ObjectExpression, key: &str) -> Option<String> {
                 PropertyKey::StringLiteral(lit) => lit.value.as_str(),
                 _ => continue,
             };
-            
+
             if prop_key == key {
                 if let Expression::StringLiteral(lit) = &prop.value {
                     return Some(lit.value.to_string());
@@ -336,7 +397,7 @@ fn get_string_array_prop(obj: &ObjectExpression, key: &str) -> Option<Vec<String
                 PropertyKey::StringLiteral(lit) => lit.value.as_str(),
                 _ => continue,
             };
-            
+
             if prop_key == key {
                 if let Expression::ArrayExpression(arr) = &prop.value {
                     let mut strings = Vec::new();
@@ -372,7 +433,7 @@ fn get_bool_prop(obj: &ObjectExpression, key: &str) -> Option<bool> {
                 PropertyKey::StringLiteral(lit) => lit.value.as_str(),
                 _ => continue,
             };
-            
+
             if prop_key == key {
                 if let Expression::BooleanLiteral(lit) = &prop.value {
                     return Some(lit.value);
@@ -391,7 +452,7 @@ fn get_number_prop(obj: &ObjectExpression, key: &str) -> Option<f64> {
                 PropertyKey::StringLiteral(lit) => lit.value.as_str(),
                 _ => continue,
             };
-            
+
             if prop_key == key {
                 if let Expression::NumericLiteral(lit) = &prop.value {
                     return Some(lit.value);
@@ -408,7 +469,7 @@ fn parse_object_literal(obj: &ObjectExpression) -> Option<ModuleDefinition> {
     let mut tags = Vec::new();
     let mut dependencies = Vec::new();
     let mut actions = Vec::new();
-    
+
     for prop in &obj.properties {
         match prop {
             ObjectPropertyKind::ObjectProperty(prop) => {
@@ -417,7 +478,7 @@ fn parse_object_literal(obj: &ObjectExpression) -> Option<ModuleDefinition> {
                     PropertyKey::StringLiteral(lit) => lit.value.as_str(),
                     _ => continue,
                 };
-                
+
                 match key {
                     "name" => {
                         if let Expression::StringLiteral(lit) = &prop.value {
@@ -468,7 +529,7 @@ fn parse_object_literal(obj: &ObjectExpression) -> Option<ModuleDefinition> {
             _ => {}
         }
     }
-    
+
     name.map(|n| ModuleDefinition {
         name: n,
         description,
@@ -483,7 +544,7 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
     if let Expression::ObjectExpression(obj) = expr {
         let mut action_type = None;
         let mut props = serde_json::Map::new();
-        
+
         for prop in &obj.properties {
             if let ObjectPropertyKind::ObjectProperty(prop) = prop {
                 let key = match &prop.key {
@@ -491,7 +552,7 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                     PropertyKey::StringLiteral(lit) => lit.value.as_str(),
                     _ => continue,
                 };
-                
+
                 if key == "type" {
                     if let Expression::StringLiteral(lit) = &prop.value {
                         action_type = Some(lit.value.to_string());
@@ -504,111 +565,251 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                 }
             }
         }
-        
+
         // Create action based on type
         match action_type.as_deref() {
             Some("PackageInstall") => {
                 if let Some(serde_json::Value::Array(names)) = props.get("names") {
-                    let names: Vec<String> = names.iter()
+                    let names: Vec<String> = names
+                        .iter()
                         .filter_map(|v| v.as_str().map(String::from))
                         .collect();
-                    let manager = props.get("manager")
+                    let manager = props
+                        .get("manager")
                         .and_then(|v| v.as_str())
                         .and_then(|s| crate::atoms::package::PackageManager::from_str(s));
-                    return Some(ActionType::PackageInstall(PackageInstall { names, manager }));
+                    return Some(ActionType::PackageInstall(PackageInstall {
+                        names,
+                        manager,
+                    }));
                 }
             }
             Some("LinkFile") => {
-                let source = props.get("source").and_then(|v| v.as_str()).map(String::from)?;
-                let target = props.get("target").and_then(|v| v.as_str()).map(String::from)?;
-                let force = props.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
-                return Some(ActionType::LinkFile(LinkFile { source, target, force }));
+                let source = props
+                    .get("source")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let target = props
+                    .get("target")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let force = props
+                    .get("force")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                return Some(ActionType::LinkFile(LinkFile {
+                    source,
+                    target,
+                    force,
+                }));
             }
             Some("LinkDirectory") => {
-                let from = props.get("from").and_then(|v| v.as_str()).map(String::from)?;
+                let from = props
+                    .get("from")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
                 let to = props.get("to").and_then(|v| v.as_str()).map(String::from)?;
-                let force = props.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
-                return Some(ActionType::LinkDirectory(LinkDirectory { source: from, target: to, force }));
+                let force = props
+                    .get("force")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                return Some(ActionType::LinkDirectory(LinkDirectory {
+                    source: from,
+                    target: to,
+                    force,
+                }));
             }
             Some("ExecuteCommand") => {
-                let shell = props.get("shell").and_then(|v| v.as_str()).map(String::from);
-                let command = props.get("command").and_then(|v| v.as_str()).map(String::from)?;
+                let shell = props
+                    .get("shell")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                let command = props
+                    .get("command")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
                 let args = props.get("args").and_then(|v| v.as_array()).map(|arr| {
                     arr.iter()
                         .filter_map(|v| v.as_str().map(String::from))
                         .collect()
                 });
-                let escalate = props.get("escalate").and_then(|v| v.as_bool()).unwrap_or(false);
-                return Some(ActionType::ExecuteCommand(ExecuteCommand { shell, command, args, escalate }));
+                let escalate = props
+                    .get("escalate")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                return Some(ActionType::ExecuteCommand(ExecuteCommand {
+                    shell,
+                    command,
+                    args,
+                    escalate,
+                }));
             }
             Some("CopyFile") => {
-                let source = props.get("source").and_then(|v| v.as_str()).map(String::from)?;
-                let target = props.get("target").and_then(|v| v.as_str()).map(String::from)?;
-                let escalate = props.get("escalate").and_then(|v| v.as_bool()).unwrap_or(false);
-                return Some(ActionType::CopyFile(CopyFile { source, target, escalate }));
+                let source = props
+                    .get("source")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let target = props
+                    .get("target")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let escalate = props
+                    .get("escalate")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                return Some(ActionType::CopyFile(CopyFile {
+                    source,
+                    target,
+                    escalate,
+                }));
             }
             Some("Directory") => {
-                let path = props.get("path").and_then(|v| v.as_str()).map(String::from)?;
+                let path = props
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
                 let escalate = props.get("escalate").and_then(|v| v.as_bool());
                 return Some(ActionType::Directory(Directory { path, escalate }));
             }
             Some("HttpDownload") => {
-                let url = props.get("url").and_then(|v| v.as_str()).map(String::from)?;
-                let destination = props.get("destination").and_then(|v| v.as_str()).map(String::from)?;
+                let url = props
+                    .get("url")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let destination = props
+                    .get("destination")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
                 let checksum = None; // TODO: Parse checksum object if provided
                 let mode = props.get("mode").and_then(|v| v.as_u64()).map(|n| n as u32);
-                return Some(ActionType::HttpDownload(HttpDownload { url, destination, checksum, mode }));
+                return Some(ActionType::HttpDownload(HttpDownload {
+                    url,
+                    destination,
+                    checksum,
+                    mode,
+                }));
             }
             Some("SystemdService") => {
-                let name = props.get("name").and_then(|v| v.as_str()).map(String::from)?;
-                let description = props.get("description").and_then(|v| v.as_str()).map(String::from)?;
-                let exec_start = props.get("execStart").and_then(|v| v.as_str()).map(String::from)?;
-                let service_type = props.get("serviceType").and_then(|v| v.as_str()).map(String::from)?;
-                let scope = props.get("scope").and_then(|v| v.as_str()).map(String::from)?;
-                let restart = props.get("restart").and_then(|v| v.as_str()).map(String::from);
-                let restart_sec = props.get("restartSec").and_then(|v| v.as_u64()).map(|n| n as u32);
-                return Some(ActionType::SystemdService(SystemdService { name, description, exec_start, service_type, scope, restart, restart_sec }));
+                let name = props
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let description = props
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let exec_start = props
+                    .get("execStart")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let service_type = props
+                    .get("serviceType")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let scope = props
+                    .get("scope")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let restart = props
+                    .get("restart")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                let restart_sec = props
+                    .get("restartSec")
+                    .and_then(|v| v.as_u64())
+                    .map(|n| n as u32);
+                return Some(ActionType::SystemdService(SystemdService {
+                    name,
+                    description,
+                    exec_start,
+                    service_type,
+                    scope,
+                    restart,
+                    restart_sec,
+                }));
             }
             Some("SystemdSocket") => {
-                let name = props.get("name").and_then(|v| v.as_str()).map(String::from)?;
-                let description = props.get("description").and_then(|v| v.as_str()).map(String::from)?;
-                let listen_stream = props.get("listenStream").and_then(|v| v.as_str()).map(String::from)?;
-                let scope = props.get("scope").and_then(|v| v.as_str()).map(String::from)?;
-                return Some(ActionType::SystemdSocket(SystemdSocket { name, description, listen_stream, scope }));
+                let name = props
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let description = props
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let listen_stream = props
+                    .get("listenStream")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let scope = props
+                    .get("scope")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                return Some(ActionType::SystemdSocket(SystemdSocket {
+                    name,
+                    description,
+                    listen_stream,
+                    scope,
+                }));
             }
             Some("DconfImport") => {
-                let source = props.get("source").and_then(|v| v.as_str()).map(String::from)?;
-                let path = props.get("path").and_then(|v| v.as_str()).map(String::from)?;
+                let source = props
+                    .get("source")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let path = props
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
                 return Some(ActionType::DconfImport(DconfImport { source, path }));
             }
             Some("InstallGnomeExtensions") => {
                 if let Some(serde_json::Value::Array(extensions)) = props.get("extensions") {
-                    let extensions: Vec<String> = extensions.iter()
+                    let extensions: Vec<String> = extensions
+                        .iter()
                         .filter_map(|v| v.as_str().map(String::from))
                         .collect();
-                    return Some(ActionType::InstallGnomeExtensions(InstallGnomeExtensions { extensions }));
+                    return Some(ActionType::InstallGnomeExtensions(InstallGnomeExtensions {
+                        extensions,
+                    }));
                 }
             }
             Some("PackageRemove") => {
                 if let Some(serde_json::Value::Array(names)) = props.get("names") {
-                    let names: Vec<String> = names.iter()
+                    let names: Vec<String> = names
+                        .iter()
                         .filter_map(|v| v.as_str().map(String::from))
                         .collect();
-                    let manager = props.get("manager")
+                    let manager = props
+                        .get("manager")
                         .and_then(|v| v.as_str())
                         .and_then(|s| crate::atoms::package::PackageManager::from_str(s));
                     return Some(ActionType::PackageRemove(PackageRemove { names, manager }));
                 }
             }
             Some("SystemdManage") => {
-                let name = props.get("name").and_then(|v| v.as_str()).map(String::from)?;
-                let operation = props.get("operation").and_then(|v| v.as_str()).map(String::from)?;
-                let scope = props.get("scope").and_then(|v| v.as_str()).map(String::from)?;
-                return Some(ActionType::SystemdManage(SystemdManage { name, operation, scope }));
+                let name = props
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let operation = props
+                    .get("operation")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                let scope = props
+                    .get("scope")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)?;
+                return Some(ActionType::SystemdManage(SystemdManage {
+                    name,
+                    operation,
+                    scope,
+                }));
             }
             Some("GitConfig") => {
                 if let Some(serde_json::Value::Array(entries_arr)) = props.get("entries") {
-                    let entries: Vec<GitConfigEntry> = entries_arr.iter()
+                    let entries: Vec<GitConfigEntry> = entries_arr
+                        .iter()
                         .filter_map(|v| {
                             if let serde_json::Value::Object(entry) = v {
                                 let key = entry.get("key")?.as_str()?.to_string();
@@ -623,13 +824,18 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                     let global = props.get("global").and_then(|v| v.as_bool());
                     let system = props.get("system").and_then(|v| v.as_bool());
                     let unset = props.get("unset").and_then(|v| v.as_bool());
-                    return Some(ActionType::GitConfig(GitConfig { entries, global, system, unset }));
+                    return Some(ActionType::GitConfig(GitConfig {
+                        entries,
+                        global,
+                        system,
+                        unset,
+                    }));
                 }
             }
             _ => {}
         }
     }
-    
+
     None
 }
 
@@ -637,12 +843,13 @@ fn expression_to_json(expr: &Expression) -> Option<serde_json::Value> {
     match expr {
         Expression::StringLiteral(lit) => Some(serde_json::Value::String(lit.value.to_string())),
         Expression::NumericLiteral(lit) => Some(serde_json::Value::Number(
-            serde_json::Number::from_f64(lit.value).unwrap_or_else(|| serde_json::Number::from(0))
+            serde_json::Number::from_f64(lit.value).unwrap_or_else(|| serde_json::Number::from(0)),
         )),
         Expression::BooleanLiteral(lit) => Some(serde_json::Value::Bool(lit.value)),
         Expression::NullLiteral(_) => Some(serde_json::Value::Null),
         Expression::ArrayExpression(arr) => {
-            let values: Vec<serde_json::Value> = arr.elements
+            let values: Vec<serde_json::Value> = arr
+                .elements
                 .iter()
                 .filter_map(|elem| elem.as_expression().and_then(expression_to_json))
                 .collect();
@@ -676,7 +883,7 @@ fn get_git_config_entries(obj: &ObjectExpression, key: &str) -> Option<Vec<GitCo
                 PropertyKey::StringLiteral(lit) => lit.value.as_str(),
                 _ => continue,
             };
-            
+
             if prop_key == key {
                 if let Expression::ArrayExpression(arr) = &prop.value {
                     let mut entries = Vec::new();
@@ -705,16 +912,16 @@ pub fn load_modules(discovered: Vec<DiscoveredModule>) -> Vec<Result<LoadedModul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs::File;
     use std::io::Write;
     use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
 
     fn create_test_module(dir: &Path, name: &str, content: &str) -> DiscoveredModule {
         let path = dir.join(format!("{}.ts", name));
         let mut file = File::create(&path).unwrap();
         file.write_all(content.as_bytes()).unwrap();
-        
+
         DiscoveredModule {
             path,
             name: name.to_string(),
@@ -733,15 +940,18 @@ export default defineModule("test")
         packageInstall({ names: ["vim"] })
     ]);
 "#;
-        
+
         let discovered = create_test_module(temp_dir.path(), "test", content);
         let result = load_module(&discovered);
-        
+
         assert!(result.is_ok());
         let loaded = result.unwrap();
         assert_eq!(loaded.source, discovered);
         assert_eq!(loaded.definition.name, "test");
-        assert_eq!(loaded.definition.description, Some("Test module".to_string()));
+        assert_eq!(
+            loaded.definition.description,
+            Some("Test module".to_string())
+        );
         assert_eq!(loaded.definition.actions.len(), 1);
     }
 
@@ -756,10 +966,10 @@ export default defineModule("nodesc")
         packageInstall({ names: ["git"] })
     ]);
 "#;
-        
+
         let discovered = create_test_module(temp_dir.path(), "nodesc", content);
         let result = load_module(&discovered);
-        
+
         assert!(result.is_ok());
         let loaded = result.unwrap();
         assert_eq!(loaded.definition.name, "nodesc");
@@ -781,10 +991,10 @@ export default defineModule("multi")
         executeCommand({ shell: "bash", command: "echo done" })
     ]);
 "#;
-        
+
         let discovered = create_test_module(temp_dir.path(), "multi", content);
         let result = load_module(&discovered);
-        
+
         assert!(result.is_ok());
         let loaded = result.unwrap();
         assert_eq!(loaded.definition.actions.len(), 3);
@@ -800,10 +1010,10 @@ export default {
     actions: []
 };
 "#;
-        
+
         let discovered = create_test_module(temp_dir.path(), "invalid", content);
         let result = load_module(&discovered);
-        
+
         assert!(result.is_err());
         match result.unwrap_err() {
             LoadError::ParseError(msg) => assert!(msg.contains("syntax") || msg.contains("parse")),
@@ -820,10 +1030,10 @@ import { defineModule } from "./types";
 const module = defineModule("noexport")
     .actions([]);
 "#;
-        
+
         let discovered = create_test_module(temp_dir.path(), "noexport", content);
         let result = load_module(&discovered);
-        
+
         assert!(result.is_err());
         match result.unwrap_err() {
             LoadError::ValidationError(msg) => assert!(msg.contains("export default")),
@@ -837,7 +1047,7 @@ const module = defineModule("noexport")
             path: PathBuf::from("/nonexistent/file.ts"),
             name: "nonexistent".to_string(),
         };
-        
+
         let result = load_module(&discovered);
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -850,7 +1060,7 @@ const module = defineModule("noexport")
     fn test_load_module_empty_file() {
         let temp_dir = TempDir::new().unwrap();
         let discovered = create_test_module(temp_dir.path(), "empty", "");
-        
+
         let result = load_module(&discovered);
         assert!(result.is_err());
     }
@@ -866,33 +1076,44 @@ export default {
     "actions": []
 };
 "#;
-        
+
         let discovered = create_test_module(temp_dir.path(), "json", content);
         let result = load_module(&discovered);
-        
+
         // We should accept this format too
         assert!(result.is_ok());
         let loaded = result.unwrap();
         assert_eq!(loaded.definition.name, "jsonmodule");
-        assert_eq!(loaded.definition.description, Some("JSON format".to_string()));
+        assert_eq!(
+            loaded.definition.description,
+            Some("JSON format".to_string())
+        );
     }
 
     #[test]
     fn test_load_modules_batch() {
         let temp_dir = TempDir::new().unwrap();
-        
-        let module1 = create_test_module(temp_dir.path(), "mod1", r#"
+
+        let module1 = create_test_module(
+            temp_dir.path(),
+            "mod1",
+            r#"
 export default { name: "mod1", actions: [] };
-"#);
-        
-        let module2 = create_test_module(temp_dir.path(), "mod2", r#"
+"#,
+        );
+
+        let module2 = create_test_module(
+            temp_dir.path(),
+            "mod2",
+            r#"
 export default { name: "mod2", actions: [] };
-"#);
-        
+"#,
+        );
+
         let module3 = create_test_module(temp_dir.path(), "invalid", "invalid syntax");
-        
+
         let results = load_modules(vec![module1, module2, module3]);
-        
+
         assert_eq!(results.len(), 3);
         assert!(results[0].is_ok());
         assert!(results[1].is_ok());
@@ -913,12 +1134,15 @@ export default {
     ]
 };
 "#;
-        
+
         let discovered = create_test_module(temp_dir.path(), "tools", content);
         let result = load_module(&discovered);
-        
+
         assert!(result.is_ok());
         let loaded = result.unwrap();
-        assert_eq!(loaded.definition.description, Some("Install dev tools".to_string()));
+        assert_eq!(
+            loaded.definition.description,
+            Some("Install dev tools".to_string())
+        );
     }
 }

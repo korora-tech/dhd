@@ -1,7 +1,7 @@
+use crate::atoms::Atom;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use crate::atoms::Atom;
 
 #[derive(Debug, Clone)]
 pub struct SystemdService {
@@ -16,13 +16,13 @@ pub struct SystemdService {
 
 impl SystemdService {
     pub fn new(
-        name: String, 
-        description: String, 
-        exec_start: String, 
-        service_type: String, 
-        scope: String, 
-        restart: Option<String>, 
-        restart_sec: Option<u32>
+        name: String,
+        description: String,
+        exec_start: String,
+        service_type: String,
+        scope: String,
+        restart: Option<String>,
+        restart_sec: Option<u32>,
     ) -> Self {
         Self {
             name,
@@ -70,7 +70,7 @@ impl Atom for SystemdService {
 
     fn execute(&self) -> Result<(), String> {
         let service_path = self.get_service_path();
-        
+
         // Create parent directories if needed
         if let Some(parent) = service_path.parent() {
             if !parent.exists() {
@@ -90,15 +90,15 @@ impl Atom for SystemdService {
                 .args(["--user", "daemon-reload"])
                 .output()
         } else {
-            Command::new("systemctl")
-                .args(["daemon-reload"])
-                .output()
+            Command::new("systemctl").args(["daemon-reload"]).output()
         };
 
         if let Ok(output) = reload_cmd {
             if !output.status.success() {
-                return Err(format!("Failed to reload systemd: {}", 
-                    String::from_utf8_lossy(&output.stderr)));
+                return Err(format!(
+                    "Failed to reload systemd: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ));
             }
         }
 
@@ -125,7 +125,7 @@ mod tests {
             Some("on-failure".to_string()),
             Some(5),
         );
-        
+
         assert_eq!(service.name, "test.service");
         assert_eq!(service.description, "Test service");
         assert_eq!(service.exec_start, "/bin/test");
@@ -146,7 +146,7 @@ mod tests {
             None,
             None,
         );
-        
+
         assert_eq!(service.name(), "SystemdService");
     }
 
@@ -161,14 +161,16 @@ mod tests {
             None,
             None,
         );
-        
+
         assert_eq!(service.describe(), "Create systemd service: test.service");
     }
 
     #[test]
     fn test_systemd_service_user_path() {
-        unsafe { std::env::set_var("HOME", "/home/testuser"); }
-        
+        unsafe {
+            std::env::set_var("HOME", "/home/testuser");
+        }
+
         let service = SystemdService::new(
             "test.service".to_string(),
             "Test service".to_string(),
@@ -178,9 +180,12 @@ mod tests {
             None,
             None,
         );
-        
+
         let path = service.get_service_path();
-        assert_eq!(path, std::path::PathBuf::from("/home/testuser/.config/systemd/user/test.service"));
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/home/testuser/.config/systemd/user/test.service")
+        );
     }
 
     #[test]
@@ -194,9 +199,12 @@ mod tests {
             None,
             None,
         );
-        
+
         let path = service.get_service_path();
-        assert_eq!(path, std::path::PathBuf::from("/etc/systemd/system/test.service"));
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/etc/systemd/system/test.service")
+        );
     }
 
     #[test]
@@ -210,7 +218,7 @@ mod tests {
             None,
             None,
         );
-        
+
         let content = service.generate_service_content();
         assert!(content.contains("[Unit]"));
         assert!(content.contains("Description=Test service for application"));
@@ -234,7 +242,7 @@ mod tests {
             Some("always".to_string()),
             Some(10),
         );
-        
+
         let content = service.generate_service_content();
         assert!(content.contains("[Unit]"));
         assert!(content.contains("Description=Daemon service"));
@@ -258,7 +266,7 @@ mod tests {
             Some("on-failure".to_string()),
             None,
         );
-        
+
         let content = service.generate_service_content();
         assert!(content.contains("Restart=on-failure"));
         assert!(!content.contains("RestartSec="));

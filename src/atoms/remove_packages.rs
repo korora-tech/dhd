@@ -1,7 +1,7 @@
-use std::process::Command;
 use crate::atoms::Atom;
 use crate::atoms::package::PackageManager;
-use crate::platform::{current_platform, Platform, LinuxDistro};
+use crate::platform::{LinuxDistro, Platform, current_platform};
+use std::process::Command;
 
 #[derive(Debug, Clone)]
 pub struct RemovePackages {
@@ -25,7 +25,9 @@ impl RemovePackages {
                 LinuxDistro::Fedora => Ok(PackageManager::Dnf),
                 LinuxDistro::Arch => Ok(PackageManager::Pacman),
                 LinuxDistro::NixOS => Ok(PackageManager::Nix),
-                _ => Err("Unable to detect package manager for this Linux distribution".to_string()),
+                _ => {
+                    Err("Unable to detect package manager for this Linux distribution".to_string())
+                }
             },
             Platform::MacOS => Ok(PackageManager::Brew),
             _ => Err("Unsupported platform for package removal".to_string()),
@@ -44,7 +46,7 @@ impl Atom for RemovePackages {
         }
 
         let manager = self.detect_package_manager()?;
-        
+
         let (command, args) = match manager {
             PackageManager::Apt => ("sudo", vec!["apt-get", "remove", "-y"]),
             PackageManager::Dnf => ("sudo", vec!["dnf", "remove", "-y"]),
@@ -62,7 +64,8 @@ impl Atom for RemovePackages {
             cmd.arg(package);
         }
 
-        let output = cmd.output()
+        let output = cmd
+            .output()
             .map_err(|e| format!("Failed to execute package removal: {}", e))?;
 
         if !output.status.success() {

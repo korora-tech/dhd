@@ -14,7 +14,11 @@ impl std::fmt::Display for DependencyError {
                 write!(f, "Cyclic dependency detected: {}", cycle.join(" -> "))
             }
             DependencyError::MissingDependency { module, dependency } => {
-                write!(f, "Module '{}' depends on '{}' which was not found", module, dependency)
+                write!(
+                    f,
+                    "Module '{}' depends on '{}' which was not found",
+                    module, dependency
+                )
             }
         }
     }
@@ -23,23 +27,25 @@ impl std::fmt::Display for DependencyError {
 impl std::error::Error for DependencyError {}
 
 /// Resolves module dependencies and returns modules in execution order
-pub fn resolve_dependencies(modules: Vec<LoadedModule>) -> Result<Vec<LoadedModule>, DependencyError> {
+pub fn resolve_dependencies(
+    modules: Vec<LoadedModule>,
+) -> Result<Vec<LoadedModule>, DependencyError> {
     // Create a map of module name to module
     let mut module_map: HashMap<String, LoadedModule> = HashMap::new();
     for module in modules {
         module_map.insert(module.definition.name.clone(), module);
     }
-    
+
     // Build dependency graph
     let mut graph: HashMap<String, Vec<String>> = HashMap::new();
     let mut in_degree: HashMap<String, usize> = HashMap::new();
-    
+
     // Initialize graph
     for name in module_map.keys() {
         graph.insert(name.clone(), Vec::new());
         in_degree.insert(name.clone(), 0);
     }
-    
+
     // Build edges and check for missing dependencies
     for (name, module) in &module_map {
         for dep in &module.definition.dependencies {
@@ -53,21 +59,21 @@ pub fn resolve_dependencies(modules: Vec<LoadedModule>) -> Result<Vec<LoadedModu
             *in_degree.get_mut(name).unwrap() += 1;
         }
     }
-    
+
     // Topological sort using Kahn's algorithm
     let mut queue: VecDeque<String> = VecDeque::new();
     let mut result: Vec<LoadedModule> = Vec::new();
-    
+
     // Find all nodes with no incoming edges
     for (name, &degree) in &in_degree {
         if degree == 0 {
             queue.push_back(name.clone());
         }
     }
-    
+
     while let Some(current) = queue.pop_front() {
         result.push(module_map.get(&current).unwrap().clone());
-        
+
         // For each node that depends on current
         if let Some(dependents) = graph.get(&current) {
             for dependent in dependents {
@@ -79,25 +85,26 @@ pub fn resolve_dependencies(modules: Vec<LoadedModule>) -> Result<Vec<LoadedModu
             }
         }
     }
-    
+
     // Check for cycles
     if result.len() != module_map.len() {
         // Find a cycle for better error reporting
         let processed: HashSet<_> = result.iter().map(|m| &m.definition.name).collect();
-        let unprocessed: Vec<_> = module_map.keys()
+        let unprocessed: Vec<_> = module_map
+            .keys()
             .filter(|name| !processed.contains(name))
             .cloned()
             .collect();
-        
+
         // Find a specific cycle
         if let Some(cycle) = find_cycle(&graph, &unprocessed) {
             return Err(DependencyError::CyclicDependency(cycle));
         }
-        
+
         // Fallback error
         return Err(DependencyError::CyclicDependency(unprocessed));
     }
-    
+
     Ok(result)
 }
 
@@ -106,7 +113,7 @@ fn find_cycle(graph: &HashMap<String, Vec<String>>, start_nodes: &[String]) -> O
     for start in start_nodes {
         let mut visited = HashSet::new();
         let mut path = Vec::new();
-        
+
         if let Some(cycle) = dfs_find_cycle(start, graph, &mut visited, &mut path) {
             return Some(cycle);
         }
@@ -127,14 +134,14 @@ fn dfs_find_cycle(
         cycle.push(node.to_string());
         return Some(cycle);
     }
-    
+
     if visited.contains(node) {
         return None;
     }
-    
+
     visited.insert(node.to_string());
     path.push(node.to_string());
-    
+
     if let Some(neighbors) = graph.get(node) {
         for neighbor in neighbors {
             if let Some(cycle) = dfs_find_cycle(neighbor, graph, visited, path) {
@@ -142,7 +149,7 @@ fn dfs_find_cycle(
             }
         }
     }
-    
+
     path.pop();
     None
 }
@@ -177,7 +184,7 @@ mod tests {
             create_test_module("b", vec![]),
             create_test_module("c", vec![]),
         ];
-        
+
         let result = resolve_dependencies(modules).unwrap();
         assert_eq!(result.len(), 3);
     }
@@ -189,7 +196,7 @@ mod tests {
             create_test_module("lib", vec!["base".to_string()]),
             create_test_module("base", vec![]),
         ];
-        
+
         let result = resolve_dependencies(modules).unwrap();
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].definition.name, "base");
@@ -205,7 +212,7 @@ mod tests {
             create_test_module("lib2", vec!["base".to_string()]),
             create_test_module("base", vec![]),
         ];
-        
+
         let result = resolve_dependencies(modules).unwrap();
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].definition.name, "base");
@@ -222,10 +229,10 @@ mod tests {
             create_test_module("b", vec!["c".to_string()]),
             create_test_module("c", vec!["a".to_string()]),
         ];
-        
+
         let result = resolve_dependencies(modules);
         assert!(result.is_err());
-        
+
         match result.unwrap_err() {
             DependencyError::CyclicDependency(cycle) => {
                 assert!(cycle.len() >= 3);
@@ -236,13 +243,11 @@ mod tests {
 
     #[test]
     fn test_missing_dependency() {
-        let modules = vec![
-            create_test_module("app", vec!["missing".to_string()]),
-        ];
-        
+        let modules = vec![create_test_module("app", vec!["missing".to_string()])];
+
         let result = resolve_dependencies(modules);
         assert!(result.is_err());
-        
+
         match result.unwrap_err() {
             DependencyError::MissingDependency { module, dependency } => {
                 assert_eq!(module, "app");
@@ -264,16 +269,17 @@ mod tests {
             create_test_module("config", vec![]),
             create_test_module("utils", vec![]),
         ];
-        
+
         let result = resolve_dependencies(modules).unwrap();
         assert_eq!(result.len(), 8);
-        
+
         // Check that dependencies come before dependents
-        let positions: HashMap<_, _> = result.iter()
+        let positions: HashMap<_, _> = result
+            .iter()
             .enumerate()
             .map(|(i, m)| (m.definition.name.as_str(), i))
             .collect();
-        
+
         assert!(positions["config"] < positions["db"]);
         assert!(positions["config"] < positions["theme"]);
         assert!(positions["utils"] < positions["common"]);

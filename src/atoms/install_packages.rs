@@ -1,5 +1,5 @@
-use crate::atoms::Atom;
 use super::package::PackageManager;
+use crate::atoms::Atom;
 
 #[derive(Debug, Clone)]
 pub struct InstallPackages {
@@ -16,7 +16,7 @@ impl Atom for InstallPackages {
         if self.packages.is_empty() {
             return Ok(());
         }
-        
+
         let manager = if let Some(mgr) = &self.manager {
             mgr.clone()
         } else {
@@ -24,9 +24,9 @@ impl Atom for InstallPackages {
             PackageManager::detect()
                 .ok_or_else(|| "No supported package manager found".to_string())?
         };
-        
+
         let provider = manager.get_provider();
-        
+
         // Filter out already installed packages
         let mut packages_to_install = Vec::new();
         for package in &self.packages {
@@ -43,21 +43,21 @@ impl Atom for InstallPackages {
                 }
             }
         }
-        
+
         if packages_to_install.is_empty() {
             return Ok(());
         }
-        
+
         // Install each package
         for package in &packages_to_install {
             match provider.install_package(package) {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => {
                     return Err(format!("Failed to install package {}: {}", package, e));
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -68,13 +68,17 @@ impl Atom for InstallPackages {
         } else {
             String::new()
         };
-        
+
         if self.packages.is_empty() {
             format!("Install packages{}: (none)", manager_str)
         } else if self.packages.len() == 1 {
             format!("Install package{}: {}", manager_str, self.packages[0])
         } else {
-            format!("Install packages{}: {}", manager_str, self.packages.join(", "))
+            format!(
+                "Install packages{}: {}",
+                manager_str,
+                self.packages.join(", ")
+            )
         }
     }
 }
@@ -98,7 +102,7 @@ mod tests {
             packages: vec![],
             manager: None,
         };
-        
+
         // Should succeed even with empty package list
         let result = atom.execute();
         assert!(result.is_ok());
@@ -110,7 +114,7 @@ mod tests {
             packages: vec!["vim".to_string()],
             manager: None,
         };
-        
+
         // Currently just prints, should succeed
         let result = atom.execute();
         assert!(result.is_ok());
@@ -122,7 +126,7 @@ mod tests {
             packages: vec!["vim".to_string(), "git".to_string(), "curl".to_string()],
             manager: None,
         };
-        
+
         // Currently just prints, should succeed
         let result = atom.execute();
         assert!(result.is_ok());
@@ -134,7 +138,7 @@ mod tests {
             packages: vec!["vim".to_string()],
             manager: Some(PackageManager::Apt),
         };
-        
+
         let cloned = atom.clone();
         assert_eq!(cloned.packages, atom.packages);
         assert_eq!(cloned.manager, atom.manager);
