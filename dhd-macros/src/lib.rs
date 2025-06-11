@@ -1,7 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemFn, ItemStruct, ItemEnum, ItemImpl, FnArg, Pat, Type, ReturnType, ImplItem, Visibility};
-
+use syn::{
+    parse_macro_input, FnArg, ImplItem, ItemEnum, ItemFn, ItemImpl, ItemStruct, Pat, ReturnType,
+    Type, Visibility,
+};
 
 fn to_camel_case(s: &str) -> String {
     let mut result = String::new();
@@ -50,7 +52,10 @@ pub fn typescript_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Convert snake_case to camelCase for TypeScript
     let ts_fn_name = to_camel_case(&fn_name_str);
     let params_str = params.join(", ");
-    let signature = format!("export function {}({}): {};", ts_fn_name, params_str, return_type);
+    let signature = format!(
+        "export function {}({}): {};",
+        ts_fn_name, params_str, return_type
+    );
 
     // Create a unique static name to avoid conflicts
     let static_name = quote::format_ident!("__{}_TYPESCRIPT", fn_name.to_string().to_uppercase());
@@ -90,7 +95,10 @@ pub fn typescript_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     // Convert field name to camelCase for TypeScript
                     let ts_field_name = to_camel_case(&field_name_str);
-                    ts_fields.push(format!("    {}{}: {}", ts_field_name, optional_marker, field_type));
+                    ts_fields.push(format!(
+                        "    {}{}: {}",
+                        ts_field_name, optional_marker, field_type
+                    ));
                 }
             }
         }
@@ -138,7 +146,7 @@ fn type_to_typescript(ty: &Type) -> String {
                             }
                         }
                         "any[]".to_string()
-                    },
+                    }
                     "Option" => {
                         // Handle Option<T>
                         if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
@@ -147,7 +155,7 @@ fn type_to_typescript(ty: &Type) -> String {
                             }
                         }
                         "any | undefined".to_string()
-                    },
+                    }
                     "Result" => {
                         // Handle Result<T, E>
                         if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
@@ -156,7 +164,7 @@ fn type_to_typescript(ty: &Type) -> String {
                             }
                         }
                         "any".to_string()
-                    },
+                    }
                     // For custom types, use the type name as-is
                     "Self" => "this".to_string(),
                     other => other.to_string(),
@@ -164,7 +172,7 @@ fn type_to_typescript(ty: &Type) -> String {
             } else {
                 "any".to_string()
             }
-        },
+        }
         _ => "any".to_string(),
     }
 }
@@ -206,7 +214,9 @@ pub fn typescript_enum(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     if let Some(content_start) = tokens_str.find("content = \"") {
                         let content_start = content_start + 11;
                         if let Some(content_end) = tokens_str[content_start..].find("\"") {
-                            content_name = Some(tokens_str[content_start..content_start + content_end].to_string());
+                            content_name = Some(
+                                tokens_str[content_start..content_start + content_end].to_string(),
+                            );
                         }
                     }
                 }
@@ -231,7 +241,10 @@ pub fn typescript_enum(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     ));
                 } else {
                     // Simple variant
-                    ts_variants.push(format!("{{ {}: \"{}\" }} & {}", tag_name, variant_name_str, field_type));
+                    ts_variants.push(format!(
+                        "{{ {}: \"{}\" }} & {}",
+                        tag_name, variant_name_str, field_type
+                    ));
                 }
             }
             syn::Fields::Unit => {
@@ -323,7 +336,8 @@ pub fn typescript_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 };
 
                 let params_str = params.join(", ");
-                let method_signature = format!("    {}({}): {}", ts_method_name, params_str, return_type);
+                let method_signature =
+                    format!("    {}({}): {}", ts_method_name, params_str, return_type);
                 methods.push(method_signature);
             }
         }
