@@ -91,7 +91,7 @@ mod tests {
 
         assert_eq!(action.source, "/home/user/.dotfiles/vimrc");
         assert_eq!(action.target, "/home/user/.vimrc");
-        assert_eq!(action.force, false);
+        assert!(!action.force);
     }
 
     #[test]
@@ -106,7 +106,7 @@ mod tests {
             ActionType::LinkFile(link) => {
                 assert_eq!(link.source, "source");
                 assert_eq!(link.target, "target");
-                assert_eq!(link.force, true);
+                assert!(link.force);
             }
             _ => panic!("Expected LinkFile action type"),
         }
