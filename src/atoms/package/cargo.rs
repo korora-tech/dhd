@@ -18,7 +18,7 @@ impl PackageProvider for CargoProvider {
 
     fn install_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("cargo")
-            .args(&["install", package])
+            .args(["install", package])
             .output()
             .map_err(|e| format!("Failed to install package: {}", e))?;
 
@@ -35,7 +35,7 @@ impl PackageProvider for CargoProvider {
 
     fn uninstall_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("cargo")
-            .args(&["uninstall", package])
+            .args(["uninstall", package])
             .output()
             .map_err(|e| format!("Failed to uninstall package: {}", e))?;
 

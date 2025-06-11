@@ -44,7 +44,7 @@ pub fn generate_typescript_definitions() -> String {
                         // Remove the closing brace and add methods
                         let interface_without_brace =
                             &global_definition[..global_definition.len() - 1];
-                        output.push_str(&interface_without_brace);
+                        output.push_str(interface_without_brace);
                         if !interface_without_brace.trim().ends_with("{") {
                             output.push_str(";\n");
                         }
@@ -82,9 +82,9 @@ pub fn generate_typescript_definitions() -> String {
             // Remove "export " and add proper indentation
             let global_signature = signature.replace("export ", "  ");
             output.push_str(&global_signature);
-            output.push_str("\n");
+            output.push('\n');
         }
-        output.push_str("\n");
+        output.push('\n');
     }
 
     // Close the declare global block

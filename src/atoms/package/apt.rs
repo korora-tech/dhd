@@ -20,7 +20,7 @@ impl PackageProvider for AptProvider {
 
     fn install_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("sudo")
-            .args(&["apt-get", "install", "-y", package])
+            .args(["apt-get", "install", "-y", package])
             .output()
             .map_err(|e| format!("Failed to install package: {}", e))?;
 
@@ -37,7 +37,7 @@ impl PackageProvider for AptProvider {
 
     fn uninstall_package(&self, package: &str) -> Result<(), String> {
         let output = Command::new("sudo")
-            .args(&["apt-get", "remove", "-y", package])
+            .args(["apt-get", "remove", "-y", package])
             .output()
             .map_err(|e| format!("Failed to uninstall package: {}", e))?;
 
@@ -54,7 +54,7 @@ impl PackageProvider for AptProvider {
 
     fn update(&self) -> Result<(), String> {
         let output = Command::new("sudo")
-            .args(&["apt-get", "update"])
+            .args(["apt-get", "update"])
             .output()
             .map_err(|e| format!("Failed to update package database: {}", e))?;
 
