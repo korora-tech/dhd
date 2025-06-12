@@ -1,0 +1,14 @@
+{
+	"$schema": "https://unpkg.com/wrangler/config-schema.json",
+	"name": "dhd-documentation",
+	"compatibility_date": "2025-06-10",
+	"assets": {
+		"directory": "./dist"
+	},
+	"routes": [
+		{
+			"pattern": "shop.example.com",
+			"custom_domain": true
+		}
+	]
+}
