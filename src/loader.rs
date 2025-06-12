@@ -169,11 +169,21 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
                     }
                 }
             }
-            "depends" | "dependsOn" => {
-                // Parse dependencies - can be multiple string arguments
+            "dependsOn" => {
+                // Parse dependencies - can be an array or multiple string arguments
                 for arg in args.iter() {
-                    if let Some(Expression::StringLiteral(lit)) = arg.as_expression() {
-                        module_def.dependencies.push(lit.value.to_string());
+                    match arg.as_expression() {
+                        Some(Expression::StringLiteral(lit)) => {
+                            module_def.dependencies.push(lit.value.to_string());
+                        }
+                        Some(Expression::ArrayExpression(arr)) => {
+                            for elem in &arr.elements {
+                                if let Some(Expression::StringLiteral(lit)) = elem.as_expression() {
+                                    module_def.dependencies.push(lit.value.to_string());
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }

@@ -156,7 +156,7 @@ export default defineModule("base")
 
     let dependent_module = r#"
 export default defineModule("app")
-    .depends("base")
+    .dependsOn(["base"])
     .actions([
         packageInstall({ names: ["app"] }),
         executeCommand({ command: "app", args: ["--init"] })

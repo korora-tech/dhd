@@ -168,7 +168,7 @@ fn apply_modules(
     tag_filters: Vec<String>,
     all_tags: bool,
 ) -> Result<(), String> {
-    use dhd::{ExecutionEngine, discover_modules, load_modules};
+    use dhd::{ExecutionEngine, discover_modules, load_modules, dependency_resolver::resolve_dependencies};
     use std::env;
 
     let current_dir =
@@ -215,8 +215,8 @@ fn apply_modules(
     }
 
     // Filter modules by their actual names and tags
-    let filtered_modules = loaded_modules
-        .into_iter()
+    let filtered_modules: Vec<_> = loaded_modules
+        .iter()
         .filter(|module| {
             // Check module name filter
             let name_match =
@@ -239,7 +239,8 @@ fn apply_modules(
 
             name_match && tag_match
         })
-        .collect::<Vec<_>>();
+        .cloned()
+        .collect();
 
     if filtered_modules.is_empty() {
         if module_filters.is_empty() && tag_filters.is_empty() {
@@ -261,12 +262,43 @@ fn apply_modules(
         return Ok(());
     }
 
+    // Include dependencies of selected modules
+    let mut modules_with_deps = filtered_modules.clone();
+    let mut added_deps = true;
+    
+    while added_deps {
+        added_deps = false;
+        let current_names: Vec<String> = modules_with_deps.iter()
+            .map(|m| m.definition.name.clone())
+            .collect();
+        
+        for module in modules_with_deps.clone() {
+            for dep in &module.definition.dependencies {
+                if !current_names.contains(dep) {
+                    if let Some(dep_module) = loaded_modules.iter().find(|m| &m.definition.name == dep) {
+                        modules_with_deps.push(dep_module.clone());
+                        added_deps = true;
+                    } else {
+                        return Err(format!(
+                            "Module '{}' depends on '{}' which was not found",
+                            module.definition.name, dep
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    
+    // Resolve dependencies to get correct execution order
+    let resolved_modules = resolve_dependencies(modules_with_deps)
+        .map_err(|e| format!("Failed to resolve dependencies: {}", e))?;
+
     // Show selected modules
     println!(
         "\n● Selected modules for {}:",
         if dry_run { "dry run" } else { "execution" }
     );
-    for (idx, module) in filtered_modules.iter().enumerate() {
+    for (idx, module) in resolved_modules.iter().enumerate() {
         let action_count = module.definition.actions.len();
         let description = module
             .definition
@@ -279,7 +311,7 @@ fn apply_modules(
         } else {
             format!(" [{}]", module.definition.tags.join(", "))
         };
-        let prefix = if idx == filtered_modules.len() - 1 {
+        let prefix = if idx == resolved_modules.len() - 1 {
             "  ⎿"
         } else {
             "  ├"
@@ -305,7 +337,7 @@ fn apply_modules(
     let engine = ExecutionEngine::new(concurrency, dry_run);
 
     // Execute the modules
-    match engine.execute(filtered_modules) {
+    match engine.execute(resolved_modules) {
         Ok(_) => Ok(()),
         Err(e) => Err(format!("Execution failed: {}", e)),
     }

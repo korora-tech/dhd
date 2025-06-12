@@ -55,12 +55,6 @@ impl ModuleBuilder {
         self
     }
 
-    // Alternative method that accepts individual dependency
-    pub fn depends(mut self, dependency: String) -> Self {
-        self.dependencies.push(dependency);
-        self
-    }
-
     pub fn actions(self, actions: Vec<ActionType>) -> ModuleDefinition {
         ModuleDefinition {
             name: self.name,
@@ -157,16 +151,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_module_builder_with_individual_dependencies() {
-        let module = define_module("app".to_string())
-            .depends("lib1".to_string())
-            .depends("lib2".to_string())
-            .actions(vec![]);
-
-        assert_eq!(
-            module.dependencies,
-            vec!["lib1".to_string(), "lib2".to_string()]
-        );
-    }
 }

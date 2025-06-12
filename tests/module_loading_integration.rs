@@ -36,7 +36,7 @@ fn test_load_module_with_dependencies() {
     let module_content = r#"
 export default defineModule("niri")
     .description("Window manager")
-    .depends("waybar", "swaync", "fuzzel")
+    .dependsOn(["waybar", "swaync", "fuzzel"])
     .actions([
         packageInstall({ names: ["niri"] })
     ]);
@@ -60,7 +60,7 @@ fn test_load_module_with_all_features() {
 export default defineModule("complex-app")
     .description("A complex application with all features")
     .tags("development", "tools")
-    .depends("base-lib")
+    .dependsOn(["base-lib"])
     .actions([
         packageInstall({ 
             names: ["complex-app", "complex-app-plugins"],
@@ -170,8 +170,7 @@ import { defineModule, packageInstall } from "dhd";
 export default defineModule("chained")
     .description("Test method chaining")
     .tags("test", "example")
-    .depends("dep1")
-    .depends("dep2")
+    .dependsOn(["dep1", "dep2"])
     .tags("additional")
     .actions([
         packageInstall({ names: ["pkg1"] })
