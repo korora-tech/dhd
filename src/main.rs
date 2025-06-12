@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use serde_json::{Map, Value};
 
 #[derive(Parser)]
 #[command(name = "dhd")]
@@ -13,6 +14,12 @@ enum Commands {
     Generate {
         #[command(subcommand)]
         generate_command: GenerateCommands,
+    },
+    /// Show context information available to conditions
+    #[command(alias = "ctx")]
+    Context {
+        #[command(subcommand)]
+        context_command: ContextCommands,
     },
     /// List all discovered TypeScript modules
     List,
@@ -39,6 +46,13 @@ enum Commands {
 #[derive(Subcommand)]
 enum GenerateCommands {
     Types,
+}
+
+#[derive(Subcommand)]
+enum ContextCommands {
+    /// List all available context properties and their current values
+    #[command(alias = "ls")]
+    List,
 }
 
 fn generate_types() -> Result<(), String> {
@@ -84,6 +98,65 @@ fn generate_types() -> Result<(), String> {
     println!("TypeScript definitions generated in types.d.ts");
     println!("TypeScript configuration generated in tsconfig.json");
     Ok(())
+}
+
+fn list_contexts() -> Result<(), String> {
+    use dhd::system_info::get_system_info;
+    
+    let info = get_system_info();
+    
+    // Serialize SystemInfo to JSON to iterate over fields dynamically
+    let json_value = serde_json::to_value(&info)
+        .map_err(|e| format!("Failed to serialize system info: {}", e))?;
+    
+    println!("Available context properties:");
+    println!("{:<30} {:<40} {}", "Property Path", "Current Value", "Type");
+    println!("{}", "-".repeat(85));
+    
+    if let Value::Object(map) = json_value {
+        print_properties(&map, "", None);
+    }
+    
+    println!("\nThese properties can be used in module conditions with the property() function.");
+    println!("Example: property(\"os.family\").equals(\"debian\")");
+    
+    Ok(())
+}
+
+fn print_properties(map: &Map<String, Value>, prefix: &str, _category: Option<&str>) {
+    let mut entries: Vec<_> = map.iter().collect();
+    entries.sort_by_key(|(k, _)| k.as_str());
+    
+    for (key, value) in entries {
+        let path = if prefix.is_empty() {
+            key.clone()
+        } else {
+            format!("{}.{}", prefix, key)
+        };
+        
+        match value {
+            Value::Object(nested_map) => {
+                // Print category header
+                let category_name = key.to_uppercase();
+                println!("\n{}", category_name);
+                
+                // Recursively print nested properties
+                print_properties(nested_map, &path, Some(&category_name));
+            }
+            Value::String(s) => {
+                println!("{:<30} {:<40} {}", path, s, "string");
+            }
+            Value::Bool(b) => {
+                println!("{:<30} {:<40} {}", path, b, "boolean");
+            }
+            Value::Number(n) => {
+                println!("{:<30} {:<40} {}", path, n, "number");
+            }
+            _ => {
+                // Skip null or array values
+            }
+        }
+    }
 }
 
 fn list_modules() -> Result<(), String> {
@@ -354,6 +427,14 @@ fn main() {
         Commands::Generate { generate_command } => match generate_command {
             GenerateCommands::Types => {
                 if let Err(e) = generate_types() {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        },
+        Commands::Context { context_command } => match context_command {
+            ContextCommands::List => {
+                if let Err(e) = list_contexts() {
                     eprintln!("Error: {}", e);
                     std::process::exit(1);
                 }

@@ -1,4 +1,4 @@
-use dhd_macros::{typescript_enum, typescript_fn};
+use dhd_macros::{typescript_enum, typescript_fn, typescript_type, typescript_impl};
 use serde::{Deserialize, Serialize};
 
 /// Represents different types of conditions that can be evaluated
@@ -244,10 +244,12 @@ pub fn command_exists(command: String) -> Condition {
 }
 
 // Builder-style functions for system properties
+#[typescript_type]
 pub struct PropertyBuilder {
-    path: String,
+    pub path: String,
 }
 
+#[typescript_impl]
 impl PropertyBuilder {
     pub fn equals(self, value: serde_json::Value) -> Condition {
         Condition::SystemProperty {
@@ -296,10 +298,12 @@ pub fn property(path: String) -> PropertyBuilder {
 }
 
 // Convenient builder for command output checking
+#[typescript_type]
 pub struct CommandBuilder {
-    command: String,
+    pub command: String,
 }
 
+#[typescript_impl]
 impl CommandBuilder {
     pub fn succeeds(self) -> Condition {
         Condition::CommandSucceeds {

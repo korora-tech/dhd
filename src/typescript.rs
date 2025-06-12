@@ -75,10 +75,26 @@ pub fn generate_typescript_definitions() -> String {
         }
     }
 
+    // Add TypeScript utility type for extracting paths
+    output.push_str("  // Utility type for extracting property paths from nested objects\n");
+    output.push_str("  type Paths<T, P extends string = \"\"> = T extends object ? {\n");
+    output.push_str("    [K in keyof T]: K extends string ?\n");
+    output.push_str("      T[K] extends object ? Paths<T[K], `${P}${P extends \"\" ? \"\" : \".\"}${K}`> : `${P}${P extends \"\" ? \"\" : \".\"}${K}`\n");
+    output.push_str("      : never\n");
+    output.push_str("  }[keyof T] : never;\n\n");
+    
+    // Generate SystemInfoPaths type
+    output.push_str("  // All valid property paths for SystemInfo\n");
+    output.push_str("  type SystemInfoPaths = Paths<SystemInfo>;\n\n");
+
     // Add collected function signatures
     if !TYPESCRIPT_FUNCTIONS.is_empty() {
         output.push_str("  // Helper function signatures\n");
-        for (_, signature) in TYPESCRIPT_FUNCTIONS {
+        for (fn_name, signature) in TYPESCRIPT_FUNCTIONS {
+            if *fn_name == "property" {
+                // Add overload for SystemInfoPaths
+                output.push_str("  function property(path: SystemInfoPaths): PropertyBuilder;\n");
+            }
             // Remove "export " and add proper indentation
             let global_signature = signature.replace("export ", "  ");
             output.push_str(&global_signature);
