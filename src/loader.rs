@@ -198,10 +198,13 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
             "actions" => {
                 if args.len() == 1 {
                     if let Some(Expression::ArrayExpression(arr)) = args[0].as_expression() {
-                        for elem in &arr.elements {
+                        for (idx, elem) in arr.elements.iter().enumerate() {
                             if let Some(action_expr) = elem.as_expression() {
-                                if let Some(action) = parse_action_call(action_expr) {
-                                    module_def.actions.push(action);
+                                match parse_action_call(action_expr) {
+                                    Ok(action) => module_def.actions.push(action),
+                                    Err(err) => {
+                                        eprintln!("⚠️  Warning: Failed to parse action at index {} in module '{}': {}", idx, module_def.name, err);
+                                    }
                                 }
                             }
                         }
@@ -228,7 +231,7 @@ fn get_property_name(member: &MemberExpression) -> Option<String> {
     }
 }
 
-fn parse_action_call(expr: &Expression) -> Option<ActionType> {
+fn parse_action_call(expr: &Expression) -> Result<ActionType, String> {
     // Parse packageInstall({ names: [...] }), linkDotfile({ ... }), etc.
     if let Expression::CallExpression(call) = expr {
         if let Expression::Identifier(ident) = &call.callee {
@@ -238,9 +241,10 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                 if let Some(Expression::ObjectExpression(obj)) = call.arguments[0].as_expression() {
                     match action_name {
                         "packageInstall" => {
-                            let names = get_string_array_prop(obj, "names")?;
+                            let names = get_string_array_prop(obj, "names")
+                                .ok_or_else(|| format!("packageInstall requires 'names' array property"))?;
                             let manager = get_package_manager(obj, "manager");
-                            return Some(ActionType::PackageInstall(PackageInstall {
+                            return Ok(ActionType::PackageInstall(PackageInstall {
                                 names,
                                 manager,
                             }));
@@ -248,32 +252,39 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                         "linkDotfile" | "linkFile" => {
                             // Support both old linkDotfile and new linkFile names
                             let source = get_string_prop(obj, "source")
-                                .or_else(|| get_string_prop(obj, "from"))?;
+                                .or_else(|| get_string_prop(obj, "from"))
+                                .ok_or_else(|| format!("linkFile requires 'source' or 'from' property"))?;
                             let target = get_string_prop(obj, "target")
-                                .or_else(|| get_string_prop(obj, "to"))?;
+                                .or_else(|| get_string_prop(obj, "to"))
+                                .ok_or_else(|| format!("linkFile requires 'target' or 'to' property"))?;
                             let force = get_bool_prop(obj, "force").unwrap_or(false);
-                            return Some(ActionType::LinkFile(LinkFile {
+                            return Ok(ActionType::LinkFile(LinkFile {
                                 source,
                                 target,
                                 force,
                             }));
                         }
                         "linkDirectory" => {
-                            let from = get_string_prop(obj, "from")?;
-                            let to = get_string_prop(obj, "to")?;
+                            let source = get_string_prop(obj, "source")
+                                .or_else(|| get_string_prop(obj, "from"))
+                                .ok_or_else(|| format!("linkDirectory requires 'source' or 'from' property"))?;
+                            let target = get_string_prop(obj, "target")
+                                .or_else(|| get_string_prop(obj, "to"))
+                                .ok_or_else(|| format!("linkDirectory requires 'target' or 'to' property"))?;
                             let force = get_bool_prop(obj, "force").unwrap_or(false);
-                            return Some(ActionType::LinkDirectory(LinkDirectory {
-                                source: from,
-                                target: to,
+                            return Ok(ActionType::LinkDirectory(LinkDirectory {
+                                source,
+                                target,
                                 force,
                             }));
                         }
                         "executeCommand" => {
                             let shell = get_string_prop(obj, "shell");
-                            let command = get_string_prop(obj, "command")?;
+                            let command = get_string_prop(obj, "command")
+                                .ok_or_else(|| format!("executeCommand requires 'command' property"))?;
                             let args = get_array_of_strings(obj, "args");
                             let escalate = get_bool_prop(obj, "escalate").unwrap_or(false);
-                            return Some(ActionType::ExecuteCommand(ExecuteCommand {
+                            return Ok(ActionType::ExecuteCommand(ExecuteCommand {
                                 shell,
                                 command,
                                 args,
@@ -281,29 +292,34 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             }));
                         }
                         "copyFile" => {
-                            let source = get_string_prop(obj, "source")?;
+                            let source = get_string_prop(obj, "source")
+                                .ok_or_else(|| format!("copyFile requires 'source' property"))?;
                             let target = get_string_prop(obj, "target")
-                                .or_else(|| get_string_prop(obj, "destination"))?;
+                                .or_else(|| get_string_prop(obj, "destination"))
+                                .ok_or_else(|| format!("copyFile requires 'target' or 'destination' property"))?;
                             let escalate = get_bool_prop(obj, "escalate")
                                 .or_else(|| get_bool_prop(obj, "requiresPrivilegeEscalation"))
                                 .unwrap_or(false);
-                            return Some(ActionType::CopyFile(CopyFile {
+                            return Ok(ActionType::CopyFile(CopyFile {
                                 source,
                                 target,
                                 escalate,
                             }));
                         }
                         "directory" => {
-                            let path = get_string_prop(obj, "path")?;
+                            let path = get_string_prop(obj, "path")
+                                .ok_or_else(|| format!("directory requires 'path' property"))?;
                             let escalate = get_bool_prop(obj, "escalate");
-                            return Some(ActionType::Directory(Directory { path, escalate }));
+                            return Ok(ActionType::Directory(Directory { path, escalate }));
                         }
                         "httpDownload" => {
-                            let url = get_string_prop(obj, "url")?;
-                            let destination = get_string_prop(obj, "destination")?;
+                            let url = get_string_prop(obj, "url")
+                                .ok_or_else(|| format!("httpDownload requires 'url' property"))?;
+                            let destination = get_string_prop(obj, "destination")
+                                .ok_or_else(|| format!("httpDownload requires 'destination' property"))?;
                             let checksum = None; // TODO: Parse checksum object if provided
                             let mode = get_number_prop(obj, "mode").map(|n| n as u32);
-                            return Some(ActionType::HttpDownload(HttpDownload {
+                            return Ok(ActionType::HttpDownload(HttpDownload {
                                 url,
                                 destination,
                                 checksum,
@@ -311,14 +327,19 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             }));
                         }
                         "systemdService" => {
-                            let name = get_string_prop(obj, "name")?;
-                            let description = get_string_prop(obj, "description")?;
-                            let exec_start = get_string_prop(obj, "execStart")?;
-                            let service_type = get_string_prop(obj, "serviceType")?;
-                            let scope = get_string_prop(obj, "scope")?;
+                            let name = get_string_prop(obj, "name")
+                                .ok_or_else(|| format!("systemdService requires 'name' property"))?;
+                            let description = get_string_prop(obj, "description")
+                                .ok_or_else(|| format!("systemdService requires 'description' property"))?;
+                            let exec_start = get_string_prop(obj, "execStart")
+                                .ok_or_else(|| format!("systemdService requires 'execStart' property"))?;
+                            let service_type = get_string_prop(obj, "serviceType")
+                                .ok_or_else(|| format!("systemdService requires 'serviceType' property"))?;
+                            let scope = get_string_prop(obj, "scope")
+                                .ok_or_else(|| format!("systemdService requires 'scope' property"))?;
                             let restart = get_string_prop(obj, "restart");
                             let restart_sec = get_number_prop(obj, "restartSec").map(|n| n as u32);
-                            return Some(ActionType::SystemdService(SystemdService {
+                            return Ok(ActionType::SystemdService(SystemdService {
                                 name,
                                 description,
                                 exec_start,
@@ -329,11 +350,15 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             }));
                         }
                         "systemdSocket" => {
-                            let name = get_string_prop(obj, "name")?;
-                            let description = get_string_prop(obj, "description")?;
-                            let listen_stream = get_string_prop(obj, "listenStream")?;
-                            let scope = get_string_prop(obj, "scope")?;
-                            return Some(ActionType::SystemdSocket(SystemdSocket {
+                            let name = get_string_prop(obj, "name")
+                                .ok_or_else(|| format!("systemdSocket requires 'name' property"))?;
+                            let description = get_string_prop(obj, "description")
+                                .ok_or_else(|| format!("systemdSocket requires 'description' property"))?;
+                            let listen_stream = get_string_prop(obj, "listenStream")
+                                .ok_or_else(|| format!("systemdSocket requires 'listenStream' property"))?;
+                            let scope = get_string_prop(obj, "scope")
+                                .ok_or_else(|| format!("systemdSocket requires 'scope' property"))?;
+                            return Ok(ActionType::SystemdSocket(SystemdSocket {
                                 name,
                                 description,
                                 listen_stream,
@@ -341,35 +366,47 @@ fn parse_action_call(expr: &Expression) -> Option<ActionType> {
                             }));
                         }
                         "systemdManage" => {
-                            let name = get_string_prop(obj, "name")?;
-                            let operation = get_string_prop(obj, "operation")?;
-                            let scope = get_string_prop(obj, "scope")?;
-                            return Some(ActionType::SystemdManage(SystemdManage {
+                            let name = get_string_prop(obj, "name")
+                                .ok_or_else(|| format!("systemdManage requires 'name' property"))?;
+                            let operation = get_string_prop(obj, "operation")
+                                .ok_or_else(|| format!("systemdManage requires 'operation' property"))?;
+                            let scope = get_string_prop(obj, "scope")
+                                .ok_or_else(|| format!("systemdManage requires 'scope' property"))?;
+                            return Ok(ActionType::SystemdManage(SystemdManage {
                                 name,
                                 operation,
                                 scope,
                             }));
                         }
                         "gitConfig" => {
-                            let entries = get_git_config_entries(obj, "entries")?;
+                            let entries = get_git_config_entries(obj, "entries")
+                                .ok_or_else(|| format!("gitConfig requires 'entries' property"))?;
                             let global = get_bool_prop(obj, "global");
                             let system = get_bool_prop(obj, "system");
                             let unset = get_bool_prop(obj, "unset");
-                            return Some(ActionType::GitConfig(GitConfig {
+                            return Ok(ActionType::GitConfig(GitConfig {
                                 entries,
                                 global,
                                 system,
                                 unset,
                             }));
                         }
-                        _ => {}
+                        _ => {
+                            return Err(format!("Unknown action type: '{}'. Available actions: packageInstall, linkFile, linkDirectory, executeCommand, copyFile, directory, httpDownload, systemdService, systemdSocket, systemdManage, packageRemove, dconfImport, installGnomeExtensions, gitConfig", action_name));
+                        }
                     }
+                } else {
+                    return Err(format!("Action '{}' requires an object as argument", action_name));
                 }
+            } else {
+                return Err(format!("Action '{}' requires exactly one argument", action_name));
             }
+        } else {
+            return Err(format!("Invalid action call: expected function call"));
         }
+    } else {
+        return Err(format!("Invalid expression: expected function call"));
     }
-
-    None
 }
 
 fn get_string_prop(obj: &ObjectExpression, key: &str) -> Option<String> {
