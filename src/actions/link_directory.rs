@@ -30,13 +30,13 @@ fn resolve_xdg_target(target: &str) -> PathBuf {
 }
 
 #[typescript_type]
-/// Links a directory from the module to a target location
+/// Creates a symbolic link at a specified location pointing to a directory
 ///
-/// * `source` - Path to the source directory, relative to the module directory
-/// * `target` - Target path where the symlink will be created
+/// * `source` - Path where the symlink will be created
 ///   - If absolute: used as-is
 ///   - If starts with `~/`: expanded to home directory
 ///   - If relative: resolved relative to XDG_CONFIG_HOME (usually ~/.config)
+/// * `target` - Path to the target directory that the symlink points to, relative to the module directory
 /// * `force` - If true, creates parent directories and overwrites existing files/directories
 pub struct LinkDirectory {
     pub source: String,
@@ -55,15 +55,15 @@ impl Action for LinkDirectory {
     }
 
     fn plan(&self, module_dir: &std::path::Path) -> Vec<Box<dyn crate::atom::Atom>> {
-        // Resolve source path relative to module directory if it's not absolute
-        let source_path = if PathBuf::from(&self.source).is_absolute() {
-            PathBuf::from(&self.source)
-        } else {
-            module_dir.join(&self.source)
-        };
+        // Resolve source path using XDG conventions (where the symlink will be created)
+        let source_path = resolve_xdg_target(&self.source);
 
-        // Resolve target path using XDG conventions
-        let target_path = resolve_xdg_target(&self.target);
+        // Resolve target path relative to module directory if it's not absolute
+        let target_path = if PathBuf::from(&self.target).is_absolute() {
+            PathBuf::from(&self.target)
+        } else {
+            module_dir.join(&self.target)
+        };
 
         vec![Box::new(AtomCompat::new(
             Box::new(crate::atoms::LinkFile {
@@ -84,28 +84,28 @@ mod tests {
     #[test]
     fn test_link_directory_creation() {
         let action = LinkDirectory {
-            source: "/home/user/.dotfiles/config".to_string(),
-            target: "/home/user/.config/app".to_string(),
+            source: "/home/user/.config/app".to_string(),
+            target: "/home/user/.dotfiles/config".to_string(),
             force: false,
         };
 
-        assert_eq!(action.source, "/home/user/.dotfiles/config");
-        assert_eq!(action.target, "/home/user/.config/app");
+        assert_eq!(action.source, "/home/user/.config/app");
+        assert_eq!(action.target, "/home/user/.dotfiles/config");
         assert!(!action.force);
     }
 
     #[test]
     fn test_link_directory_helper_function() {
         let action = link_directory(LinkDirectory {
-            source: "configs/app".to_string(),
-            target: "app".to_string(),
+            source: "app".to_string(),
+            target: "configs/app".to_string(),
             force: true,
         });
 
         match action {
             ActionType::LinkDirectory(link) => {
-                assert_eq!(link.source, "configs/app");
-                assert_eq!(link.target, "app");
+                assert_eq!(link.source, "app");
+                assert_eq!(link.target, "configs/app");
                 assert!(link.force);
             }
             _ => panic!("Expected LinkDirectory action type"),
@@ -142,8 +142,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkDirectory {
-            source: "config".to_string(),
-            target: "~/.config/app".to_string(),
+            source: "~/.config/app".to_string(),
+            target: "config".to_string(),
             force: false,
         };
 
@@ -154,6 +154,7 @@ mod tests {
         // Check that we got an atom
         assert_eq!(atoms.len(), 1);
         // The describe method should show the resolved path
+        // After swapping, it should contain the target from module directory
         assert!(
             atoms[0]
                 .describe()
@@ -167,7 +168,7 @@ mod tests {
 
         let action = LinkDirectory {
             source: "/absolute/source/path".to_string(),
-            target: "~/.config/app".to_string(),
+            target: "config".to_string(),
             force: false,
         };
 
@@ -209,8 +210,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkDirectory {
-            source: "config".to_string(),
-            target: "app".to_string(), // Relative to XDG_CONFIG_HOME
+            source: "app".to_string(), // Where to create symlink (relative to XDG_CONFIG_HOME)
+            target: "config".to_string(), // What it points to (relative to module dir)
             force: false,
         };
 
@@ -222,11 +223,11 @@ mod tests {
         assert_eq!(atoms.len(), 1);
 
         let description = atoms[0].describe();
-        // Check that source is resolved relative to module directory
-        assert!(description.contains("/home/user/modules/app/config"));
-        // Check that target contains the config directory path
-        assert!(description.contains("config"));
+        // After swapping, source is the symlink location (resolved to XDG)
+        // and target is the directory in the module directory
+        // Description should show: Create symlink at <XDG_CONFIG>/app -> /home/user/modules/app/config
         assert!(description.contains("app"));
+        assert!(description.contains("/home/user/modules/app/config"));
     }
 
     #[test]
@@ -234,8 +235,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkDirectory {
-            source: "config".to_string(),
-            target: "app".to_string(),
+            source: "app".to_string(), // Where to create symlink
+            target: "config".to_string(), // What it points to
             force: true,
         };
 
@@ -248,8 +249,8 @@ mod tests {
 
         // Verify the atom has force enabled (through description or other means)
         let description = atoms[0].describe();
-        assert!(description.contains("/home/user/modules/app/config"));
-        assert!(description.contains("config"));
+        // After swapping, description should show symlink location -> target
         assert!(description.contains("app"));
+        assert!(description.contains("/home/user/modules/app/config"));
     }
 }
