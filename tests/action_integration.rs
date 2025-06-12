@@ -98,14 +98,14 @@ fn test_package_install_auto_detect() {
 #[test]
 fn test_link_file_with_force() {
     let temp_dir = TempDir::new().unwrap();
-    let source = temp_dir.path().join("source.conf");
+    let source = temp_dir.path().join("link.conf");
     let target = temp_dir.path().join("target.conf");
 
-    // Create source file
-    fs::write(&source, "test content").unwrap();
+    // Create target file (what the symlink will point to)
+    fs::write(&target, "test content").unwrap();
 
-    // Create an existing target that should be overwritten
-    fs::write(&target, "old content").unwrap();
+    // Create an existing file at source location that should be overwritten
+    fs::write(&source, "old content").unwrap();
 
     let action = LinkFile {
         source: source.to_string_lossy().to_string(),
@@ -120,9 +120,9 @@ fn test_link_file_with_force() {
     let result = atoms[0].execute();
     assert!(result.is_ok());
 
-    // Verify the link was created
-    assert!(target.exists());
-    assert!(target.symlink_metadata().unwrap().file_type().is_symlink());
+    // Verify the link was created at source location
+    assert!(source.exists());
+    assert!(source.symlink_metadata().unwrap().file_type().is_symlink());
 }
 
 #[test]

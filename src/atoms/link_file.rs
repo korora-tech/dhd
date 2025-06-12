@@ -18,11 +18,11 @@ impl Atom for LinkFile {
         {
             use std::fs;
 
-            // Check if symlink already exists and points to the correct source
-            if self.target.is_symlink() {
-                match fs::read_link(&self.target) {
+            // Check if symlink already exists and points to the correct target
+            if self.source.is_symlink() {
+                match fs::read_link(&self.source) {
                     Ok(existing_link) => {
-                        if existing_link == self.source {
+                        if existing_link == self.target {
                             // Silently skip if symlink already exists with correct target
                             return Ok(());
                         }
@@ -36,31 +36,31 @@ impl Atom for LinkFile {
             // If force is enabled, create parent directories and handle existing files
             if self.force {
                 // Create parent directories if they don't exist
-                if let Some(parent) = self.target.parent() {
+                if let Some(parent) = self.source.parent() {
                     fs::create_dir_all(parent).map_err(|e| {
                         format!(
                             "Failed to create parent directories for {}: {}",
-                            self.target.display(),
+                            self.source.display(),
                             e
                         )
                     })?;
                 }
 
                 // Remove existing file/symlink if it exists
-                if self.target.exists() || self.target.is_symlink() {
-                    fs::remove_file(&self.target).map_err(|e| {
+                if self.source.exists() || self.source.is_symlink() {
+                    fs::remove_file(&self.source).map_err(|e| {
                         format!(
                             "Failed to remove existing file {}: {}",
-                            self.target.display(),
+                            self.source.display(),
                             e
                         )
                     })?;
                 }
             }
 
-            std::os::unix::fs::symlink(&self.source, &self.target).map_err(|e| {
+            std::os::unix::fs::symlink(&self.target, &self.source).map_err(|e| {
                 format!(
-                    "Failed to symlink {} to {}: {}",
+                    "Failed to create symlink at {} pointing to {}: {}",
                     self.source.display(),
                     self.target.display(),
                     e
@@ -76,7 +76,7 @@ impl Atom for LinkFile {
 
     fn describe(&self) -> String {
         format!(
-            "Link {} -> {}",
+            "Create symlink at {} -> {}",
             self.source.display(),
             self.target.display()
         )
@@ -117,11 +117,11 @@ mod tests {
     #[cfg(unix)]
     fn test_link_file_execute_success() {
         let temp_dir = TempDir::new().unwrap();
-        let source_path = temp_dir.path().join("source.txt");
+        let source_path = temp_dir.path().join("link.txt");
         let target_path = temp_dir.path().join("target.txt");
 
-        // Create source file
-        fs::write(&source_path, "test content").unwrap();
+        // Create target file
+        fs::write(&target_path, "test content").unwrap();
 
         let atom = LinkFile {
             source: source_path.clone(),
@@ -133,20 +133,20 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify symlink was created
-        assert!(target_path.is_symlink());
-        let link_target = fs::read_link(&target_path).unwrap();
-        assert_eq!(link_target, source_path);
+        assert!(source_path.is_symlink());
+        let link_target = fs::read_link(&source_path).unwrap();
+        assert_eq!(link_target, target_path);
     }
 
     #[test]
     #[cfg(unix)]
-    fn test_link_file_execute_target_exists() {
+    fn test_link_file_execute_source_exists() {
         let temp_dir = TempDir::new().unwrap();
-        let source_path = temp_dir.path().join("source.txt");
+        let source_path = temp_dir.path().join("link.txt");
         let target_path = temp_dir.path().join("target.txt");
 
         // Create both files
-        fs::write(&source_path, "source content").unwrap();
+        fs::write(&source_path, "existing content").unwrap();
         fs::write(&target_path, "target content").unwrap();
 
         let atom = LinkFile {
@@ -157,26 +157,26 @@ mod tests {
 
         let result = atom.execute();
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Failed to symlink"));
+        assert!(result.unwrap_err().contains("Failed to create symlink"));
     }
 
     #[test]
     #[cfg(unix)]
-    fn test_link_file_execute_source_not_exist() {
+    fn test_link_file_execute_target_not_exist() {
         let temp_dir = TempDir::new().unwrap();
-        let source_path = temp_dir.path().join("nonexistent.txt");
-        let target_path = temp_dir.path().join("target.txt");
+        let source_path = temp_dir.path().join("link.txt");
+        let target_path = temp_dir.path().join("nonexistent.txt");
 
         let atom = LinkFile {
-            source: source_path,
-            target: target_path.clone(),
+            source: source_path.clone(),
+            target: target_path,
             force: false,
         };
 
-        // Should create symlink even if source doesn't exist (dangling symlink)
+        // Should create symlink even if target doesn't exist (dangling symlink)
         let result = atom.execute();
         assert!(result.is_ok());
-        assert!(target_path.is_symlink());
+        assert!(source_path.is_symlink());
     }
 
     #[test]
@@ -200,11 +200,11 @@ mod tests {
     #[cfg(unix)]
     fn test_link_file_force_creates_parent_dirs() {
         let temp_dir = TempDir::new().unwrap();
-        let source_path = temp_dir.path().join("source.txt");
-        let target_path = temp_dir.path().join("nested/dir/target.txt");
+        let source_path = temp_dir.path().join("nested/dir/link.txt");
+        let target_path = temp_dir.path().join("target.txt");
 
-        // Create source file
-        fs::write(&source_path, "test content").unwrap();
+        // Create target file
+        fs::write(&target_path, "test content").unwrap();
 
         let atom = LinkFile {
             source: source_path.clone(),
@@ -216,21 +216,21 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify symlink was created
-        assert!(target_path.is_symlink());
-        let link_target = fs::read_link(&target_path).unwrap();
-        assert_eq!(link_target, source_path);
+        assert!(source_path.is_symlink());
+        let link_target = fs::read_link(&source_path).unwrap();
+        assert_eq!(link_target, target_path);
     }
 
     #[test]
     #[cfg(unix)]
     fn test_link_file_force_overwrites_existing() {
         let temp_dir = TempDir::new().unwrap();
-        let source_path = temp_dir.path().join("source.txt");
+        let source_path = temp_dir.path().join("link.txt");
         let target_path = temp_dir.path().join("target.txt");
 
         // Create both files
-        fs::write(&source_path, "source content").unwrap();
-        fs::write(&target_path, "existing content").unwrap();
+        fs::write(&source_path, "existing content").unwrap();
+        fs::write(&target_path, "target content").unwrap();
 
         let atom = LinkFile {
             source: source_path.clone(),
@@ -242,25 +242,25 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify symlink was created and overwrote existing file
-        assert!(target_path.is_symlink());
-        let link_target = fs::read_link(&target_path).unwrap();
-        assert_eq!(link_target, source_path);
+        assert!(source_path.is_symlink());
+        let link_target = fs::read_link(&source_path).unwrap();
+        assert_eq!(link_target, target_path);
     }
 
     #[test]
     #[cfg(unix)]
     fn test_link_file_force_overwrites_existing_symlink() {
         let temp_dir = TempDir::new().unwrap();
-        let source_path = temp_dir.path().join("source.txt");
+        let source_path = temp_dir.path().join("link.txt");
         let old_target_path = temp_dir.path().join("old_target.txt");
         let target_path = temp_dir.path().join("target.txt");
 
-        // Create source and old target files
-        fs::write(&source_path, "source content").unwrap();
+        // Create target and old target files
+        fs::write(&target_path, "target content").unwrap();
         fs::write(&old_target_path, "old target content").unwrap();
 
         // Create existing symlink
-        std::os::unix::fs::symlink(&old_target_path, &target_path).unwrap();
+        std::os::unix::fs::symlink(&old_target_path, &source_path).unwrap();
 
         let atom = LinkFile {
             source: source_path.clone(),
@@ -272,8 +272,8 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify symlink was updated to new target
-        assert!(target_path.is_symlink());
-        let link_target = fs::read_link(&target_path).unwrap();
-        assert_eq!(link_target, source_path);
+        assert!(source_path.is_symlink());
+        let link_target = fs::read_link(&source_path).unwrap();
+        assert_eq!(link_target, target_path);
     }
 }

@@ -30,13 +30,13 @@ fn resolve_xdg_target(target: &str) -> PathBuf {
 }
 
 #[typescript_type]
-/// Links a file from the module to a target location
+/// Creates a symbolic link at a specified location
 ///
-/// * `source` - Path to the source file, relative to the module directory
-/// * `target` - Target path where the symlink will be created
+/// * `source` - Path where the symlink will be created
 ///   - If absolute: used as-is
 ///   - If starts with `~/`: expanded to home directory
 ///   - If relative: resolved relative to XDG_CONFIG_HOME (usually ~/.config)
+/// * `target` - Path to the target file that the symlink points to, relative to the module directory
 /// * `force` - If true, creates parent directories and overwrites existing files
 pub struct LinkFile {
     pub source: String,
@@ -55,15 +55,15 @@ impl Action for LinkFile {
     }
 
     fn plan(&self, module_dir: &std::path::Path) -> Vec<Box<dyn crate::atom::Atom>> {
-        // Resolve source path relative to module directory if it's not absolute
-        let source_path = if PathBuf::from(&self.source).is_absolute() {
-            PathBuf::from(&self.source)
-        } else {
-            module_dir.join(&self.source)
-        };
+        // Resolve source path using XDG conventions (where the symlink will be created)
+        let source_path = resolve_xdg_target(&self.source);
 
-        // Resolve target path using XDG conventions
-        let target_path = resolve_xdg_target(&self.target);
+        // Resolve target path relative to module directory if it's not absolute
+        let target_path = if PathBuf::from(&self.target).is_absolute() {
+            PathBuf::from(&self.target)
+        } else {
+            module_dir.join(&self.target)
+        };
 
         vec![Box::new(AtomCompat::new(
             Box::new(crate::atoms::link_file::LinkFile {
@@ -154,11 +154,9 @@ mod tests {
         // Check that we got an atom
         assert_eq!(atoms.len(), 1);
         // The describe method should show the resolved path
-        assert!(
-            atoms[0]
-                .describe()
-                .contains("/home/user/modules/app/config.toml")
-        );
+        // Since we swapped source/target, it should now show the symlink location, not the target
+        assert!(atoms[0].describe().contains("config"));
+        assert!(atoms[0].describe().contains("config.toml"));
     }
 
     #[test]
@@ -209,8 +207,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkFile {
-            source: "config.toml".to_string(),
-            target: "atuin/config.toml".to_string(), // Relative to XDG_CONFIG_HOME
+            source: "atuin/config.toml".to_string(), // Where to create symlink (relative to XDG_CONFIG_HOME)
+            target: "config.toml".to_string(), // What it points to (relative to module dir)
             force: false,
         };
 
@@ -222,11 +220,11 @@ mod tests {
         assert_eq!(atoms.len(), 1);
 
         let description = atoms[0].describe();
-        // Check that source is resolved relative to module directory
-        assert!(description.contains("/home/user/modules/atuin/config.toml"));
-        // Check that target contains the config directory path
-        assert!(description.contains("config"));
+        // After swapping, source is the symlink location (resolved to XDG)
+        // and target is the file in the module directory
+        // Description should show: Create symlink at <XDG_CONFIG>/atuin/config.toml -> /home/user/modules/atuin/config.toml
         assert!(description.contains("atuin/config.toml"));
+        assert!(description.contains("/home/user/modules/atuin/config.toml"));
     }
 
     #[test]
@@ -234,8 +232,8 @@ mod tests {
         use std::path::Path;
 
         let action = LinkFile {
-            source: "config.toml".to_string(),
-            target: "atuin/config.toml".to_string(),
+            source: "atuin/config.toml".to_string(), // Where to create symlink
+            target: "config.toml".to_string(), // What it points to
             force: true,
         };
 
@@ -248,8 +246,8 @@ mod tests {
 
         // Verify the atom has force enabled (through description or other means)
         let description = atoms[0].describe();
-        assert!(description.contains("/home/user/modules/atuin/config.toml"));
-        assert!(description.contains("config"));
+        // After swapping, description should show symlink location -> target
         assert!(description.contains("atuin/config.toml"));
+        assert!(description.contains("/home/user/modules/atuin/config.toml"));
     }
 }

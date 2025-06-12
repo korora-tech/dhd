@@ -15,8 +15,8 @@ export default defineModule("atuin")
             names: ["atuin"],
         }),
         linkFile({
-            source: "config.toml",
-            target: "atuin/config.toml",
+            source: "atuin/config.toml",
+            target: "config.toml",
             force: true,
         }),
         executeCommand({
@@ -56,8 +56,8 @@ export default defineModule("atuin")
 
     match &module.definition.actions[1] {
         ActionType::LinkFile(link) => {
-            assert_eq!(link.source, "config.toml");
-            assert_eq!(link.target, "atuin/config.toml");
+            assert_eq!(link.source, "atuin/config.toml");
+            assert_eq!(link.target, "config.toml");
             assert!(link.force);
         }
         _ => panic!("Expected LinkFile action"),
@@ -91,8 +91,8 @@ export default defineModule("atuin")
             names: ["atuin"],
         }),
         linkFile({
-            source: "config.toml",
-            target: "atuin/config.toml",
+            source: "atuin/config.toml",
+            target: "config.toml",
             force: true,
         }),
     ]);
