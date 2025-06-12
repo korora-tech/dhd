@@ -74,7 +74,7 @@ export default defineModule("atuin")
     );
 
     // Create execution engine and verify it would execute correctly
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
     let result = engine.execute(filtered_modules);
     assert!(result.is_ok(), "Dry run execution should succeed");
 }

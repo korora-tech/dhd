@@ -172,6 +172,7 @@ mod tests {
                 description: None,
                 tags: vec![],
                 dependencies,
+                when: None,
                 actions: vec![],
             },
         }

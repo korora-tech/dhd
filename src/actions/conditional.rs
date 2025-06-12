@@ -61,56 +61,63 @@ impl Action for ConditionalAction {
     }
 
     fn plan(&self, module_dir: &Path) -> Vec<Box<dyn crate::atom::Atom>> {
+        // Check if verbose mode is enabled
+        let verbose = crate::execution::VERBOSE_MODE.with(|v| *v.borrow());
+        
         match self.should_execute() {
             Ok(true) => {
-                let condition_desc = if self.conditions.len() == 1 {
-                    self.conditions[0].describe()
-                } else {
-                    format!(
-                        "all of: [{}]",
-                        self.conditions
-                            .iter()
-                            .map(|c| c.describe())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )
-                };
-                println!(
-                    "Condition '{}' allows execution, running action '{}'",
-                    condition_desc,
-                    self.name()
-                );
+                if verbose {
+                    let condition_desc = if self.conditions.len() == 1 {
+                        self.conditions[0].describe()
+                    } else {
+                        format!(
+                            "all of: [{}]",
+                            self.conditions
+                                .iter()
+                                .map(|c| c.describe())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    };
+                    println!(
+                        "  ℹ️  Condition '{}' allows execution, running action '{}'",
+                        condition_desc,
+                        self.name()
+                    );
+                }
                 self.action.plan(module_dir)
             }
             Ok(false) => {
-                let condition_desc = if self.conditions.len() == 1 {
-                    self.conditions[0].describe()
-                } else {
-                    format!(
-                        "all of: [{}]",
-                        self.conditions
-                            .iter()
-                            .map(|c| c.describe())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )
-                };
-                let action_verb = if self.skip_on_success {
-                    "caused skip"
-                } else {
-                    "not met"
-                };
-                println!(
-                    "Condition '{}' {}, skipping action '{}'",
-                    condition_desc,
-                    action_verb,
-                    self.name()
-                );
+                if verbose {
+                    let condition_desc = if self.conditions.len() == 1 {
+                        self.conditions[0].describe()
+                    } else {
+                        format!(
+                            "all of: [{}]",
+                            self.conditions
+                                .iter()
+                                .map(|c| c.describe())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    };
+                    let action_verb = if self.skip_on_success {
+                        "caused skip"
+                    } else {
+                        "not met"
+                    };
+                    println!(
+                        "  ⏭️  Condition '{}' {}, skipping action '{}'",
+                        condition_desc,
+                        action_verb,
+                        self.name()
+                    );
+                }
                 vec![]
             }
             Err(e) => {
                 eprintln!(
-                    "Error evaluating conditions for action '{}': {}",
+                    "  ❌ Error evaluating conditions for action '{}': {}",
                     self.name(),
                     e
                 );

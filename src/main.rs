@@ -30,6 +30,9 @@ enum Commands {
         /// Filter to modules with ALL specified tags
         #[arg(long)]
         all_tags: bool,
+        /// Enable verbose output including condition evaluations
+        #[arg(short, long)]
+        verbose: bool,
     },
 }
 
@@ -167,6 +170,7 @@ fn apply_modules(
     module_filters: Vec<String>,
     tag_filters: Vec<String>,
     all_tags: bool,
+    verbose: bool,
 ) -> Result<(), String> {
     use dhd::{ExecutionEngine, discover_modules, load_modules, dependency_resolver::resolve_dependencies};
     use std::env;
@@ -334,7 +338,7 @@ fn apply_modules(
     let concurrency = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4); // Default to 4 if we can't determine CPU count
-    let engine = ExecutionEngine::new(concurrency, dry_run);
+    let engine = ExecutionEngine::new(concurrency, dry_run, verbose);
 
     // Execute the modules
     match engine.execute(resolved_modules) {
@@ -366,8 +370,9 @@ fn main() {
             module,
             tag,
             all_tags,
+            verbose,
         } => {
-            if let Err(e) = apply_modules(dry_run, module, tag, all_tags) {
+            if let Err(e) = apply_modules(dry_run, module, tag, all_tags, verbose) {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
             }

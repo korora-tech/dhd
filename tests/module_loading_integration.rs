@@ -109,6 +109,7 @@ fn test_module_dependency_ordering() {
                 tags: vec![],
                 dependencies: vec!["lib1".to_string(), "lib2".to_string()],
                 actions: vec![],
+                when: None,
             },
         },
         LoadedModule {
@@ -122,6 +123,7 @@ fn test_module_dependency_ordering() {
                 tags: vec![],
                 dependencies: vec!["base".to_string()],
                 actions: vec![],
+                when: None,
             },
         },
         LoadedModule {
@@ -135,6 +137,7 @@ fn test_module_dependency_ordering() {
                 tags: vec![],
                 dependencies: vec!["base".to_string()],
                 actions: vec![],
+                when: None,
             },
         },
         LoadedModule {
@@ -148,6 +151,7 @@ fn test_module_dependency_ordering() {
                 tags: vec![],
                 dependencies: vec![],
                 actions: vec![],
+                when: None,
             },
         },
     ];
@@ -212,6 +216,7 @@ fn test_filter_modules_by_tags() {
                 tags: vec!["desktop".to_string(), "gui".to_string()],
                 dependencies: vec![],
                 actions: vec![],
+                when: None,
             },
         },
         LoadedModule {
@@ -225,6 +230,7 @@ fn test_filter_modules_by_tags() {
                 tags: vec!["cli".to_string(), "development".to_string()],
                 dependencies: vec![],
                 actions: vec![],
+                when: None,
             },
         },
         LoadedModule {
@@ -238,6 +244,7 @@ fn test_filter_modules_by_tags() {
                 tags: vec!["development".to_string(), "tools".to_string()],
                 dependencies: vec![],
                 actions: vec![],
+                when: None,
             },
         },
     ];

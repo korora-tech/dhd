@@ -37,7 +37,7 @@ export default defineModule("test-exec")
     assert_eq!(successful_modules[0].definition.actions.len(), 3);
 
     // Create execution engine with dry run
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
 
     // In dry run mode, execute should succeed without actually running commands
     let result = engine.execute(successful_modules);
@@ -82,7 +82,7 @@ export default defineModule("not-selected")
     assert_eq!(selected_modules[0].definition.name, "selected");
     assert_eq!(selected_modules[0].definition.actions.len(), 2);
 
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
     let result = engine.execute(selected_modules);
     assert!(result.is_ok(), "Dry run execution should succeed");
 }
@@ -113,7 +113,7 @@ export default defineModule("priority-test")
     assert_eq!(successful_modules.len(), 1);
     assert_eq!(successful_modules[0].definition.actions.len(), 6);
 
-    let engine = ExecutionEngine::new(2, true); // concurrency=2, dry_run=true
+    let engine = ExecutionEngine::new(2, true, false); // concurrency=2, dry_run=true, verbose=false
     let result = engine.execute(successful_modules);
     assert!(result.is_ok(), "Dry run execution should succeed");
 }
@@ -137,7 +137,7 @@ export default defineModule("empty")
     assert_eq!(successful_modules.len(), 1);
     assert_eq!(successful_modules[0].definition.actions.len(), 0);
 
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
     let result = engine.execute(successful_modules);
     assert!(result.is_ok(), "Empty module execution should succeed");
 }
@@ -181,7 +181,7 @@ export default defineModule("app")
     // In a real implementation, dependency resolution would ensure base is executed first
     assert_eq!(app_module.definition.dependencies, vec!["base"]);
 
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
     let result = engine.execute(successful_modules);
     assert!(result.is_ok(), "Execution with dependencies should succeed");
 }

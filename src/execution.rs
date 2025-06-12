@@ -7,16 +7,22 @@ use crate::{
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Instant;
 
+thread_local! {
+    pub static VERBOSE_MODE: std::cell::RefCell<bool> = std::cell::RefCell::new(false);
+}
+
 pub struct ExecutionEngine {
     concurrency: usize,
     dry_run: bool,
+    verbose: bool,
 }
 
 impl ExecutionEngine {
-    pub fn new(concurrency: usize, dry_run: bool) -> Self {
+    pub fn new(concurrency: usize, dry_run: bool, verbose: bool) -> Self {
         Self {
             concurrency,
             dry_run,
+            verbose,
         }
     }
 
@@ -26,32 +32,93 @@ impl ExecutionEngine {
         println!("🚀 Starting execution of {} modules", modules.len());
 
         // Planning phase
-        let pb = ProgressBar::new(modules.len() as u64);
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("{spinner:.green} Planning modules... [{bar:40.cyan/blue}] {pos}/{len}")
-                .unwrap(),
-        );
-
         let mut dag = DagExecutor::new(self.concurrency);
         let mut total_atoms = 0;
 
-        for module in modules {
-            pb.set_message(format!("Planning {}", module.definition.name));
+        // Set verbose mode for the planning phase
+        VERBOSE_MODE.with(|v| *v.borrow_mut() = self.verbose);
 
-            for action in module.definition.actions {
-                let atoms =
-                    action.plan(std::path::Path::new(&module.source.path).parent().unwrap());
-                for atom in atoms {
-                    total_atoms += 1;
-                    dag.add_atom(atom);
+        if self.verbose {
+            println!("📋 Planning modules with verbose output...\n");
+            
+            for module in modules {
+                println!("● Planning module: {}", module.definition.name);
+                
+                // Check module-level condition if present
+                let should_execute = if let Some(condition) = &module.definition.when {
+                    match condition.evaluate() {
+                        Ok(result) => {
+                            if !result {
+                                println!("  ⏭️  Module skipped due to condition: {}", condition.describe());
+                            }
+                            result
+                        }
+                        Err(e) => {
+                            eprintln!("  ❌ Error evaluating module condition: {}", e);
+                            false
+                        }
+                    }
+                } else {
+                    true
+                };
+
+                if should_execute {
+                    let module_atoms_before = total_atoms;
+                    for action in module.definition.actions {
+                        let atoms =
+                            action.plan(std::path::Path::new(&module.source.path).parent().unwrap());
+                        for atom in atoms {
+                            total_atoms += 1;
+                            dag.add_atom(atom);
+                        }
+                    }
+                    
+                    if total_atoms == module_atoms_before {
+                        println!("  ⚠️  Module produced no atoms (all actions were skipped)\n");
+                    } else {
+                        println!("  ✓ Module produced {} atoms\n", total_atoms - module_atoms_before);
+                    }
+                } else {
+                    println!("  ⏭️  Module skipped\n");
                 }
             }
+        } else {
+            let pb = ProgressBar::new(modules.len() as u64);
+            pb.set_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} Planning modules... [{bar:40.cyan/blue}] {pos}/{len}")
+                    .unwrap(),
+            );
 
-            pb.inc(1);
+            for module in modules {
+                pb.set_message(format!("Planning {}", module.definition.name));
+
+                // Check module-level condition if present
+                let should_execute = if let Some(condition) = &module.definition.when {
+                    match condition.evaluate() {
+                        Ok(result) => result,
+                        Err(_) => false,
+                    }
+                } else {
+                    true
+                };
+
+                if should_execute {
+                    for action in module.definition.actions {
+                        let atoms =
+                            action.plan(std::path::Path::new(&module.source.path).parent().unwrap());
+                        for atom in atoms {
+                            total_atoms += 1;
+                            dag.add_atom(atom);
+                        }
+                    }
+                }
+
+                pb.inc(1);
+            }
+
+            pb.finish_with_message("Planning complete");
         }
-
-        pb.finish_with_message("Planning complete");
 
         // Build dependencies
         println!("📊 Building dependency graph...");

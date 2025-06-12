@@ -177,6 +177,7 @@ fn test_missing_dependency_error() {
                 description: None,
                 tags: vec![],
                 dependencies: vec!["non-existent-module".to_string()],
+                when: None,
                 actions: vec![],
             },
         }

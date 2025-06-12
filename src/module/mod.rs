@@ -1,4 +1,4 @@
-use crate::actions::{Action, ActionType};
+use crate::actions::{Action, ActionType, Condition};
 use dhd_macros::{typescript_fn, typescript_impl, typescript_type};
 
 #[typescript_type]
@@ -7,6 +7,7 @@ pub struct ModuleDefinition {
     pub description: Option<String>,
     pub tags: Vec<String>,
     pub dependencies: Vec<String>,
+    pub when: Option<Condition>,  // Module-level condition
     pub actions: Vec<ActionType>,
 }
 
@@ -21,6 +22,7 @@ pub struct ModuleBuilder {
     description: Option<String>,
     tags: Vec<String>,
     dependencies: Vec<String>,
+    when: Option<Condition>,
 }
 
 #[typescript_impl]
@@ -31,6 +33,7 @@ impl ModuleBuilder {
             description: None,
             tags: Vec::new(),
             dependencies: Vec::new(),
+            when: None,
         }
     }
 
@@ -55,12 +58,18 @@ impl ModuleBuilder {
         self
     }
 
+    pub fn when(mut self, condition: Condition) -> Self {
+        self.when = Some(condition);
+        self
+    }
+
     pub fn actions(self, actions: Vec<ActionType>) -> ModuleDefinition {
         ModuleDefinition {
             name: self.name,
             description: self.description,
             tags: self.tags,
             dependencies: self.dependencies,
+            when: self.when,
             actions,
         }
     }

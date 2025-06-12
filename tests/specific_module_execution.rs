@@ -46,7 +46,7 @@ export default defineModule("test-module")
     assert_eq!(successful_modules[0].definition.actions.len(), 3);
 
     // Create execution engine and run in dry mode
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
     let result = engine.execute(successful_modules);
 
     assert!(result.is_ok(), "Dry run execution should succeed");
@@ -93,7 +93,7 @@ export default defineModule("other-module")
     assert_eq!(selected_modules[0].definition.actions.len(), 2);
 
     // Create execution engine for selected module only
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
     let result = engine.execute(selected_modules);
     assert!(result.is_ok(), "Dry run execution should succeed");
 }
@@ -152,7 +152,7 @@ export default defineModule("common-setup")
     assert!(names.contains(&"common-setup"));
 
     // Execute filtered modules
-    let engine = ExecutionEngine::new(2, true); // concurrency=2, dry_run=true
+    let engine = ExecutionEngine::new(2, true, false); // concurrency=2, dry_run=true, verbose=false
     let result = engine.execute(dev_modules);
     assert!(result.is_ok(), "Dry run execution should succeed");
 }
@@ -214,7 +214,7 @@ export default defineModule("special-other")
     assert_eq!(selected[0].definition.name, "special-module");
     assert_eq!(selected[0].definition.actions.len(), 3);
 
-    let engine = ExecutionEngine::new(1, true); // concurrency=1, dry_run=true
+    let engine = ExecutionEngine::new(1, true, false); // concurrency=1, dry_run=true, verbose=false
     let result = engine.execute(selected);
     assert!(result.is_ok(), "Dry run execution should succeed");
 }

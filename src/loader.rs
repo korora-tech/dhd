@@ -1,7 +1,7 @@
 use crate::actions::{
     ActionType, CopyFile, DconfImport, Directory, ExecuteCommand, GitConfig, HttpDownload,
     InstallGnomeExtensions, LinkDirectory, LinkFile, PackageInstall, PackageRemove, SystemdManage,
-    SystemdService, SystemdSocket, git_config::GitConfigEntry,
+    SystemdService, SystemdSocket, git_config::GitConfigEntry, Condition, ComparisonOperator,
 };
 use crate::atoms::package::PackageManager;
 use crate::discovery::DiscoveredModule;
@@ -110,6 +110,7 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
         description: None,
         tags: Vec::new(),
         dependencies: Vec::new(),
+        when: None,
         actions: Vec::new(),
     };
 
@@ -184,6 +185,13 @@ fn parse_fluent_api(expr: &Expression) -> Option<ModuleDefinition> {
                             }
                         }
                         _ => {}
+                    }
+                }
+            }
+            "when" => {
+                if args.len() == 1 {
+                    if let Some(expr) = args[0].as_expression() {
+                        module_def.when = parse_condition_expr(expr);
                     }
                 }
             }
@@ -520,6 +528,7 @@ fn parse_object_literal(obj: &ObjectExpression) -> Option<ModuleDefinition> {
         description,
         tags,
         dependencies,
+        when: None,
         actions,
     })
 }
@@ -856,6 +865,224 @@ fn expression_to_json(expr: &Expression) -> Option<serde_json::Value> {
             }
             Some(serde_json::Value::Object(map))
         }
+        _ => None,
+    }
+}
+
+fn parse_condition_expr(expr: &Expression) -> Option<Condition> {
+    // Parse condition builder expressions like:
+    // property("hardware.fingerprint").isTrue()
+    // command("lsusb").contains("fingerprint", true)
+    // or([condition1, condition2])
+    
+    if let Expression::CallExpression(call) = expr {
+        // Check if it's a method call on a builder
+        if let Some(member) = call.callee.as_member_expression() {
+            if let Some(method_name) = get_property_name(member) {
+                // This is a builder method call like .isTrue(), .equals(), etc.
+                return parse_condition_builder_method(member.object(), method_name.as_str(), &call.arguments);
+            }
+        }
+        
+        // Check if it's a direct function call
+        if let Expression::Identifier(ident) = &call.callee {
+            let func_name = ident.name.as_str();
+            return parse_condition_function(func_name, &call.arguments);
+        }
+    }
+    
+    // For now, we don't support parsing string conditions from TypeScript
+    // since we're walking the AST and can't evaluate complex expressions
+    None
+}
+
+fn parse_condition_builder_method(builder_expr: &Expression, method: &str, args: &[Argument]) -> Option<Condition> {
+    // First, identify what kind of builder this is
+    if let Expression::CallExpression(builder_call) = builder_expr {
+        if let Expression::Identifier(ident) = &builder_call.callee {
+            match ident.name.as_str() {
+                "property" => {
+                    // property("path") builder
+                    if builder_call.arguments.len() == 1 {
+                        if let Some(Expression::StringLiteral(lit)) = builder_call.arguments[0].as_expression() {
+                            let path = lit.value.to_string();
+                            return match method {
+                                "isTrue" => Some(Condition::SystemProperty {
+                                    path,
+                                    value: serde_json::Value::Bool(true),
+                                    operator: ComparisonOperator::Equals,
+                                }),
+                                "isFalse" => Some(Condition::SystemProperty {
+                                    path,
+                                    value: serde_json::Value::Bool(false),
+                                    operator: ComparisonOperator::Equals,
+                                }),
+                                "equals" => {
+                                    if args.len() == 1 {
+                                        if let Some(value) = parse_json_value(args[0].as_expression()?) {
+                                            return Some(Condition::SystemProperty {
+                                                path,
+                                                value,
+                                                operator: ComparisonOperator::Equals,
+                                            });
+                                        }
+                                    }
+                                    None
+                                }
+                                "contains" => {
+                                    if args.len() == 1 {
+                                        if let Some(Expression::StringLiteral(lit)) = args[0].as_expression() {
+                                            return Some(Condition::SystemProperty {
+                                                path,
+                                                value: serde_json::Value::String(lit.value.to_string()),
+                                                operator: ComparisonOperator::Contains,
+                                            });
+                                        }
+                                    }
+                                    None
+                                }
+                                _ => None,
+                            };
+                        }
+                    }
+                }
+                "command" => {
+                    // command("cmd") builder
+                    if builder_call.arguments.len() == 1 {
+                        if let Some(Expression::StringLiteral(lit)) = builder_call.arguments[0].as_expression() {
+                            let cmd = lit.value.to_string();
+                            return match method {
+                                "exists" => Some(Condition::CommandExists { command: cmd }),
+                                "succeeds" => Some(Condition::CommandSucceeds { command: cmd, args: None }),
+                                "contains" => {
+                                    if args.len() >= 1 {
+                                        if let Some(Expression::StringLiteral(text_lit)) = args[0].as_expression() {
+                                            let text = text_lit.value.to_string();
+                                            let case_insensitive = if args.len() >= 2 {
+                                                args[1].as_expression()
+                                                    .and_then(|e| if let Expression::BooleanLiteral(b) = e {
+                                                        Some(b.value)
+                                                    } else {
+                                                        None
+                                                    })
+                                                    .unwrap_or(false)
+                                            } else {
+                                                false
+                                            };
+                                            let grep_cmd = if case_insensitive {
+                                                format!("{} | grep -qi '{}'", cmd, text)
+                                            } else {
+                                                format!("{} | grep -q '{}'", cmd, text)
+                                            };
+                                            return Some(Condition::CommandSucceeds {
+                                                command: grep_cmd,
+                                                args: None,
+                                            });
+                                        }
+                                    }
+                                    None
+                                }
+                                _ => None,
+                            };
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+fn parse_condition_function(func_name: &str, args: &[Argument]) -> Option<Condition> {
+    match func_name {
+        "fileExists" => {
+            if args.len() == 1 {
+                if let Some(Expression::StringLiteral(lit)) = args[0].as_expression() {
+                    return Some(Condition::FileExists { path: lit.value.to_string() });
+                }
+            }
+        }
+        "directoryExists" => {
+            if args.len() == 1 {
+                if let Some(Expression::StringLiteral(lit)) = args[0].as_expression() {
+                    return Some(Condition::DirectoryExists { path: lit.value.to_string() });
+                }
+            }
+        }
+        "commandExists" => {
+            if args.len() == 1 {
+                if let Some(Expression::StringLiteral(lit)) = args[0].as_expression() {
+                    return Some(Condition::CommandExists { command: lit.value.to_string() });
+                }
+            }
+        }
+        "envVar" => {
+            if args.len() >= 1 {
+                if let Some(Expression::StringLiteral(name_lit)) = args[0].as_expression() {
+                    let name = name_lit.value.to_string();
+                    let value = if args.len() >= 2 {
+                        args[1].as_expression()
+                            .and_then(|e| if let Expression::StringLiteral(lit) = e {
+                                Some(lit.value.to_string())
+                            } else {
+                                None
+                            })
+                    } else {
+                        None
+                    };
+                    return Some(Condition::EnvironmentVariable { name, value });
+                }
+            }
+        }
+        "or" | "anyOf" => {
+            if args.len() == 1 {
+                if let Some(Expression::ArrayExpression(arr)) = args[0].as_expression() {
+                    let conditions: Vec<Condition> = arr.elements.iter()
+                        .filter_map(|elem| elem.as_expression())
+                        .filter_map(parse_condition_expr)
+                        .collect();
+                    if !conditions.is_empty() {
+                        return Some(Condition::AnyOf { conditions });
+                    }
+                }
+            }
+        }
+        "and" | "allOf" => {
+            if args.len() == 1 {
+                if let Some(Expression::ArrayExpression(arr)) = args[0].as_expression() {
+                    let conditions: Vec<Condition> = arr.elements.iter()
+                        .filter_map(|elem| elem.as_expression())
+                        .filter_map(parse_condition_expr)
+                        .collect();
+                    if !conditions.is_empty() {
+                        return Some(Condition::AllOf { conditions });
+                    }
+                }
+            }
+        }
+        "not" => {
+            if args.len() == 1 {
+                if let Some(expr) = args[0].as_expression() {
+                    if let Some(condition) = parse_condition_expr(expr) {
+                        return Some(Condition::Not { condition: Box::new(condition) });
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
+fn parse_json_value(expr: &Expression) -> Option<serde_json::Value> {
+    match expr {
+        Expression::StringLiteral(lit) => Some(serde_json::Value::String(lit.value.to_string())),
+        Expression::NumericLiteral(lit) => Some(serde_json::Value::Number(
+            serde_json::Number::from_f64(lit.value).unwrap_or_else(|| serde_json::Number::from(0))
+        )),
+        Expression::BooleanLiteral(lit) => Some(serde_json::Value::Bool(lit.value)),
+        Expression::NullLiteral(_) => Some(serde_json::Value::Null),
         _ => None,
     }
 }
