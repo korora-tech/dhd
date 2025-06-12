@@ -46,15 +46,27 @@ impl Atom for LinkFile {
                     })?;
                 }
 
-                // Remove existing file/symlink if it exists
+                // Remove existing file/directory/symlink if it exists
                 if self.source.exists() || self.source.is_symlink() {
-                    fs::remove_file(&self.source).map_err(|e| {
-                        format!(
-                            "Failed to remove existing file {}: {}",
-                            self.source.display(),
-                            e
-                        )
-                    })?;
+                    if self.source.is_dir() && !self.source.is_symlink() {
+                        // It's a real directory, not a symlink to a directory
+                        fs::remove_dir_all(&self.source).map_err(|e| {
+                            format!(
+                                "Failed to remove existing directory {}: {}",
+                                self.source.display(),
+                                e
+                            )
+                        })?;
+                    } else {
+                        // It's a file or symlink
+                        fs::remove_file(&self.source).map_err(|e| {
+                            format!(
+                                "Failed to remove existing file {}: {}",
+                                self.source.display(),
+                                e
+                            )
+                        })?;
+                    }
                 }
             }
 

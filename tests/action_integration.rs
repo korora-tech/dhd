@@ -1,4 +1,4 @@
-use dhd::actions::{Action, ExecuteCommand, LinkFile, PackageInstall};
+use dhd::actions::{Action, ExecuteCommand, LinkFile, LinkDirectory, PackageInstall};
 use dhd::atoms::package::PackageManager;
 use std::fs;
 use tempfile::TempDir;
@@ -123,6 +123,84 @@ fn test_link_file_with_force() {
     // Verify the link was created at source location
     assert!(source.exists());
     assert!(source.symlink_metadata().unwrap().file_type().is_symlink());
+}
+
+#[test]
+fn test_link_directory_basic() {
+    let temp_dir = TempDir::new().unwrap();
+    let module_dir = temp_dir.path().join("module");
+    fs::create_dir(&module_dir).unwrap();
+    
+    // Create a target directory in the module
+    let target_dir = module_dir.join("config");
+    fs::create_dir(&target_dir).unwrap();
+    fs::write(target_dir.join("test.txt"), "test content").unwrap();
+    
+    // Create the symlink location
+    let source = temp_dir.path().join("myapp");
+    
+    let action = LinkDirectory {
+        source: source.to_string_lossy().to_string(),
+        target: "config".to_string(),
+        force: true,
+    };
+    
+    let atoms = action.plan(&module_dir);
+    assert_eq!(atoms.len(), 1);
+    
+    // Execute the atom
+    let result = atoms[0].execute();
+    assert!(result.is_ok(), "Failed to execute: {:?}", result);
+    
+    // Verify the symlink was created
+    assert!(source.exists(), "Symlink was not created");
+    assert!(source.symlink_metadata().unwrap().file_type().is_symlink(), "Created path is not a symlink");
+    
+    // Verify the symlink points to the correct target
+    let link_target = fs::read_link(&source).unwrap();
+    assert_eq!(link_target, target_dir, "Symlink points to wrong target");
+    
+    // Verify we can access content through the symlink
+    let test_file = source.join("test.txt");
+    assert!(test_file.exists(), "Cannot access file through symlink");
+    let content = fs::read_to_string(&test_file).unwrap();
+    assert_eq!(content, "test content", "Wrong content through symlink");
+}
+
+#[test]
+fn test_link_directory_overwrites_with_force() {
+    let temp_dir = TempDir::new().unwrap();
+    let module_dir = temp_dir.path().join("module");
+    fs::create_dir(&module_dir).unwrap();
+    
+    // Create a target directory in the module
+    let target_dir = module_dir.join("config");
+    fs::create_dir(&target_dir).unwrap();
+    
+    // Create an existing directory at source location
+    let source = temp_dir.path().join("existing");
+    fs::create_dir(&source).unwrap();
+    fs::write(source.join("old.txt"), "old content").unwrap();
+    
+    let action = LinkDirectory {
+        source: source.to_string_lossy().to_string(),
+        target: "config".to_string(),
+        force: true,
+    };
+    
+    let atoms = action.plan(&module_dir);
+    assert_eq!(atoms.len(), 1);
+    
+    // Execute should succeed with force=true
+    let result = atoms[0].execute();
+    assert!(result.is_ok(), "Failed to execute with force: {:?}", result);
+    
+    // Verify the symlink replaced the directory
+    assert!(source.exists(), "Source path no longer exists");
+    assert!(source.symlink_metadata().unwrap().file_type().is_symlink(), "Source is not a symlink");
+    
+    // Old file should not be accessible
+    assert!(!source.join("old.txt").exists(), "Old file still accessible");
 }
 
 #[test]
