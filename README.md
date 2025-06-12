@@ -1,5 +1,8 @@
 # DHD: Declarative Home Deployment
 
+> [!IMPORTANT]
+> **AI-Generated Project Notice**: This project is primarily AI-generated with guidance from [@rawkode](https://github.com/rawkode). It is currently in an experimental state and should not be considered stable. The codebase will undergo significant refactoring once core functionality is established. Use at your own risk in production environments.
+
 > Manage your home directory, dotfiles, and system configuration using TypeScript
 
 DHD is a modern configuration management tool that lets you define your system setup declaratively using TypeScript. Whether you're setting up a new machine, managing dotfiles, or ensuring consistent development environments across systems, DHD makes it simple, type-safe, and reproducible.
