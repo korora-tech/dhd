@@ -33,7 +33,7 @@ pub use gnome_extensions::{InstallGnomeExtensions, install_gnome_extensions};
 pub use http_download::{HttpDownload, http_download};
 pub use link_directory::{LinkDirectory, link_directory};
 pub use link_file::{LinkFile, link_file};
-pub use package_install::PackageInstall;
+pub use package_install::{PackageInstall, package_install};
 pub use package_remove::{PackageRemove, package_remove};
 pub use systemd_manage::{SystemdManage, systemd_manage};
 pub use systemd_service::{SystemdService, systemd_service};
