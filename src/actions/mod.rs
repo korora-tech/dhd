@@ -28,7 +28,7 @@ pub use copy_file::{CopyFile, copy_file};
 pub use dconf_import::{DconfImport, dconf_import};
 pub use directory::{Directory, directory};
 pub use execute_command::ExecuteCommand;
-pub use git_config::{GitConfig, git_config};
+pub use git_config::{GitConfig, gitConfig};
 pub use gnome_extensions::{InstallGnomeExtensions, install_gnome_extensions};
 pub use http_download::{HttpDownload, http_download};
 pub use link_directory::{LinkDirectory, link_directory};

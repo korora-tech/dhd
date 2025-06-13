@@ -1,7 +1,7 @@
 use crate::actions::{
     ActionType, CopyFile, DconfImport, Directory, ExecuteCommand, GitConfig, HttpDownload,
     InstallGnomeExtensions, LinkDirectory, LinkFile, PackageInstall, PackageRemove, SystemdManage,
-    SystemdService, SystemdSocket, git_config::GitConfigEntry, Condition, ComparisonOperator,
+    SystemdService, SystemdSocket, Condition, ComparisonOperator,
 };
 use crate::atoms::package::PackageManager;
 use crate::discovery::DiscoveredModule;
@@ -379,16 +379,19 @@ fn parse_action_call(expr: &Expression) -> Result<ActionType, String> {
                             }));
                         }
                         "gitConfig" => {
-                            let entries = get_git_config_entries(obj, "entries")
-                                .ok_or_else(|| format!("gitConfig requires 'entries' property"))?;
-                            let global = get_bool_prop(obj, "global");
-                            let system = get_bool_prop(obj, "system");
-                            let unset = get_bool_prop(obj, "unset");
+                            let global = expression_to_json_from_obj(obj, "global");
+                            let system = expression_to_json_from_obj(obj, "system");
+                            let local = expression_to_json_from_obj(obj, "local");
+                            
+                            // Validate that at least one scope is provided
+                            if global.is_none() && system.is_none() && local.is_none() {
+                                return Err(format!("gitConfig requires at least one of 'global', 'system', or 'local' properties"));
+                            }
+                            
                             return Ok(ActionType::GitConfig(GitConfig {
-                                entries,
                                 global,
                                 system,
-                                unset,
+                                local,
                             }));
                         }
                         _ => {
@@ -838,28 +841,16 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                 }));
             }
             Some("GitConfig") => {
-                if let Some(serde_json::Value::Array(entries_arr)) = props.get("entries") {
-                    let entries: Vec<GitConfigEntry> = entries_arr
-                        .iter()
-                        .filter_map(|v| {
-                            if let serde_json::Value::Object(entry) = v {
-                                let key = entry.get("key")?.as_str()?.to_string();
-                                let value = entry.get("value")?.as_str()?.to_string();
-                                let add = entry.get("add").and_then(|v| v.as_bool());
-                                Some(GitConfigEntry { key, value, add })
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    let global = props.get("global").and_then(|v| v.as_bool());
-                    let system = props.get("system").and_then(|v| v.as_bool());
-                    let unset = props.get("unset").and_then(|v| v.as_bool());
+                let global = props.get("global").map(|v| v.clone());
+                let system = props.get("system").map(|v| v.clone());
+                let local = props.get("local").map(|v| v.clone());
+                
+                // Ensure at least one scope is provided
+                if global.is_some() || system.is_some() || local.is_some() {
                     return Some(ActionType::GitConfig(GitConfig {
-                        entries,
                         global,
                         system,
-                        unset,
+                        local,
                     }));
                 }
             }
@@ -1124,7 +1115,7 @@ fn parse_json_value(expr: &Expression) -> Option<serde_json::Value> {
     }
 }
 
-fn get_git_config_entries(obj: &ObjectExpression, key: &str) -> Option<Vec<GitConfigEntry>> {
+fn expression_to_json_from_obj(obj: &ObjectExpression, key: &str) -> Option<serde_json::Value> {
     for prop in &obj.properties {
         if let ObjectPropertyKind::ObjectProperty(prop) = prop {
             let prop_key = match &prop.key {
@@ -1134,19 +1125,7 @@ fn get_git_config_entries(obj: &ObjectExpression, key: &str) -> Option<Vec<GitCo
             };
 
             if prop_key == key {
-                if let Expression::ArrayExpression(arr) = &prop.value {
-                    let mut entries = Vec::new();
-                    for elem in &arr.elements {
-                        if let Some(Expression::ObjectExpression(entry_obj)) = elem.as_expression()
-                        {
-                            let key = get_string_prop(entry_obj, "key")?;
-                            let value = get_string_prop(entry_obj, "value")?;
-                            let add = get_bool_prop(entry_obj, "add");
-                            entries.push(GitConfigEntry { key, value, add });
-                        }
-                    }
-                    return Some(entries);
-                }
+                return expression_to_json(&prop.value);
             }
         }
     }
