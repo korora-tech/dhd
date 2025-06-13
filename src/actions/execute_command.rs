@@ -4,12 +4,29 @@ use dhd_macros::{typescript_fn, typescript_type};
 
 use super::Action;
 
+/// Configuration for executing a command.
+///
+/// This structure defines the parameters for executing a shell command.
+/// It supports specifying the shell, command, arguments, and whether to escalate privileges.
 #[typescript_type]
 pub struct ExecuteCommand {
+    /// Optional shell to use for executing the command.
+    ///
+    /// If not specified, defaults to "sh".
     pub shell: Option<String>,
+    /// The command to execute.
+    ///
+    /// This is the main command string that will be executed.
     pub command: String,
+    /// Optional arguments for the command.
+    ///
+    /// These are additional arguments passed to the command.
     pub args: Option<Vec<String>>,
-    pub escalate: bool,
+    /// Whether to escalate privileges for the command (optional).
+    ///
+    /// If set to true, the command will be executed with elevated privileges.
+    /// If not specified, defaults to false.
+    pub escalate: Option<bool>,
 }
 
 #[typescript_fn]
@@ -43,7 +60,7 @@ impl Action for ExecuteCommand {
             Box::new(crate::atoms::RunCommand {
                 shell,
                 command: full_command,
-                escalate: self.escalate,
+                escalate: self.escalate.unwrap_or(false),
             }),
             "execute_command".to_string(),
         ))]
@@ -60,13 +77,13 @@ mod tests {
             shell: Some("bash".to_string()),
             command: "echo hello".to_string(),
             args: None,
-            escalate: false,
+            escalate: Some(false),
         };
 
         assert_eq!(action.shell, Some("bash".to_string()));
         assert_eq!(action.command, "echo hello");
         assert_eq!(action.args, None);
-        assert!(!action.escalate);
+        assert_eq!(action.escalate, Some(false));
     }
 
     #[test]
@@ -75,13 +92,14 @@ mod tests {
             shell: Some("sh".to_string()),
             command: "ls -la".to_string(),
             args: None,
-            escalate: false,
+            escalate: Some(false),
         });
 
         match action {
             ActionType::ExecuteCommand(cmd) => {
                 assert_eq!(cmd.shell, Some("sh".to_string()));
                 assert_eq!(cmd.command, "ls -la");
+                assert_eq!(cmd.escalate, Some(false));
             }
             _ => panic!("Expected ExecuteCommand action type"),
         }
@@ -93,7 +111,7 @@ mod tests {
             shell: Some("bash".to_string()),
             command: "echo test".to_string(),
             args: None,
-            escalate: false,
+            escalate: Some(false),
         };
 
         assert_eq!(action.name(), "ExecuteCommand");
@@ -105,7 +123,7 @@ mod tests {
             shell: Some("zsh".to_string()),
             command: "pwd".to_string(),
             args: None,
-            escalate: false,
+            escalate: Some(false),
         };
 
         let atoms = action.plan(std::path::Path::new("."));
@@ -121,7 +139,7 @@ mod tests {
             shell: Some("bash".to_string()),
             command: complex_command.to_string(),
             args: None,
-            escalate: false,
+            escalate: Some(false),
         };
 
         let atoms = action.plan(std::path::Path::new("."));
@@ -142,7 +160,7 @@ mod tests {
                 shell: Some(shell.to_string()),
                 command: "echo test".to_string(),
                 args: None,
-                escalate: false,
+                escalate: Some(false),
             };
 
             let atoms = action.plan(std::path::Path::new("."));
@@ -158,7 +176,7 @@ mod tests {
             shell: None,
             command: "systemctl".to_string(),
             args: Some(vec!["disable".to_string(), "docker.service".to_string()]),
-            escalate: true,
+            escalate: Some(true),
         };
 
         let atoms = action.plan(std::path::Path::new("."));
@@ -173,7 +191,7 @@ mod tests {
             shell: None,
             command: "echo".to_string(),
             args: Some(vec!["hello world".to_string()]),
-            escalate: false,
+            escalate: Some(false),
         };
 
         let atoms = action.plan(std::path::Path::new("."));

@@ -288,7 +288,7 @@ fn parse_action_call(expr: &Expression) -> Result<ActionType, String> {
                                 shell,
                                 command,
                                 args,
-                                escalate,
+                                escalate: Some(escalate),
                             }));
                         }
                         "copyFile" => {
@@ -672,7 +672,7 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                     shell,
                     command,
                     args,
-                    escalate,
+                    escalate: Some(escalate),
                 }));
             }
             Some("CopyFile") => {
@@ -911,7 +911,7 @@ fn parse_condition_expr(expr: &Expression) -> Option<Condition> {
     // property("hardware.fingerprint").isTrue()
     // command("lsusb").contains("fingerprint", true)
     // or([condition1, condition2])
-    
+
     if let Expression::CallExpression(call) = expr {
         // Check if it's a method call on a builder
         if let Some(member) = call.callee.as_member_expression() {
@@ -920,14 +920,14 @@ fn parse_condition_expr(expr: &Expression) -> Option<Condition> {
                 return parse_condition_builder_method(member.object(), method_name.as_str(), &call.arguments);
             }
         }
-        
+
         // Check if it's a direct function call
         if let Expression::Identifier(ident) = &call.callee {
             let func_name = ident.name.as_str();
             return parse_condition_function(func_name, &call.arguments);
         }
     }
-    
+
     // For now, we don't support parsing string conditions from TypeScript
     // since we're walking the AST and can't evaluate complex expressions
     None

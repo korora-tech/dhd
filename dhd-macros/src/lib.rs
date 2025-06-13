@@ -95,20 +95,70 @@ pub fn typescript_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     // Convert field name to camelCase for TypeScript
                     let ts_field_name = to_camel_case(&field_name_str);
-                    ts_fields.push(format!(
-                        "    {}{}: {}",
-                        ts_field_name, optional_marker, field_type
-                    ));
+
+                    // Extract field documentation from comments
+                    let mut field_doc = None;
+                    for attr in &field.attrs {
+                        if attr.path().is_ident("doc") {
+                            if let syn::Meta::NameValue(meta_nv) = &attr.meta {
+                                if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(lit_str), .. }) = &meta_nv.value {
+                                    field_doc = Some(lit_str.value());
+                                }
+                            }
+                        }
+                    }
+
+                    // Add field with documentation
+                    let field_with_doc = if let Some(doc) = field_doc {
+                        format!("    /**\n     * {}\n     */\n    {}{}: {}",
+                            doc, ts_field_name, optional_marker, field_type)
+                    } else {
+                        format!("    {}{}: {}", ts_field_name, optional_marker, field_type)
+                    };
+                    ts_fields.push(field_with_doc);
                 }
             }
         }
     }
 
-    let ts_interface = format!(
-        "export interface {} {{\n{}\n}}",
-        struct_name_str,
-        ts_fields.join(";\n")
-    );
+    // Collect Rust documentation comments for the struct
+    let doc_comments = input
+        .attrs
+        .iter()
+        .filter_map(|attr| {
+            if attr.path().is_ident("doc") {
+                if let syn::Meta::NameValue(meta_nv) = &attr.meta {
+                    if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(lit_str), .. }) = &meta_nv.value {
+                        return Some(lit_str.value());
+                    }
+                }
+            }
+            None
+        })
+        .collect::<Vec<_>>();
+
+    // Build doc block for TypeScript
+    let doc_block = doc_comments
+        .iter()
+        .map(|line| format!("/// {}", line))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Build the TypeScript interface with documentation
+    let ts_interface = if !doc_block.is_empty() {
+        format!(
+            "{doc_block}\nexport interface {} {{\n{}\n}}",
+            struct_name_str,
+            ts_fields.join(";\n"),
+            doc_block = doc_block
+        )
+    } else {
+        format!(
+            "export interface {} {{\n{}\n}}",
+            struct_name_str,
+            ts_fields.join(";\n")
+        )
+    };
 
     let expanded = quote! {
         #[derive(Clone, Debug, PartialEq)]

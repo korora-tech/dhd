@@ -30,8 +30,27 @@ pub fn generate_typescript_definitions() -> String {
     if !TYPESCRIPT_TYPES.is_empty() {
         output.push_str("  // Type definitions\n");
         for (type_name, definition) in TYPESCRIPT_TYPES {
-            // Remove "export " from definitions since they're now global
-            let global_definition = definition.replace("export ", "  ");
+            // Extract Rust documentation comments
+            let doc_comment = if let Some(doc_start) = definition.find("///") {
+                if let Some(doc_end) = definition.find("\n") {
+                    &definition[doc_start..doc_end]
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            };
+
+            // Add documentation to the interface if available
+            let global_definition = if !doc_comment.is_empty() {
+                format!(
+                    "  /**\n   * {}\n   */\n  {}",
+                    doc_comment,
+                    definition.replace("export ", "  ")
+                )
+            } else {
+                definition.replace("export ", "  ")
+            };
 
             // Check if we have methods for this type
             if let Some(methods) = methods_map.get(type_name) {
@@ -82,7 +101,7 @@ pub fn generate_typescript_definitions() -> String {
     output.push_str("      T[K] extends object ? Paths<T[K], `${P}${P extends \"\" ? \"\" : \".\"}${K}`> : `${P}${P extends \"\" ? \"\" : \".\"}${K}`\n");
     output.push_str("      : never\n");
     output.push_str("  }[keyof T] : never;\n\n");
-    
+
     // Generate SystemInfoPaths type
     output.push_str("  // All valid property paths for SystemInfo\n");
     output.push_str("  type SystemInfoPaths = Paths<SystemInfo>;\n\n");
