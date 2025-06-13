@@ -17,6 +17,7 @@ pub enum PackageManagerType {
     Cargo,
     Dnf,
     Flatpak,
+    GitHub,
     Go,
     Npm,
     Pacman,

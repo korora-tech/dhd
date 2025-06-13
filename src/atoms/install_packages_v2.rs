@@ -23,6 +23,18 @@ impl Atom for InstallPackagesAtom {
             PackageManagerType::Cargo => ("cargo", vec!["install"]),
             PackageManagerType::Dnf => ("sudo", vec!["dnf", "install", "-y"]),
             PackageManagerType::Flatpak => ("flatpak", vec!["install", "-y"]),
+            PackageManagerType::GitHub => {
+                // For GitHub releases, we need to use the provider directly
+                use crate::atoms::package::PackageManager;
+                let provider = PackageManager::GitHub.get_provider();
+                
+                for package in &self.packages {
+                    provider.install_package(package)
+                        .map_err(|e| anyhow::anyhow!("{}", e))?;
+                }
+                
+                return Ok(());
+            }
             PackageManagerType::Go => ("go", vec!["install"]),
             PackageManagerType::Npm => ("npm", vec!["install", "-g"]),
             PackageManagerType::Pacman => ("sudo", vec!["pacman", "-S", "--noconfirm"]),

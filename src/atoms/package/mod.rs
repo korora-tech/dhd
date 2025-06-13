@@ -8,6 +8,7 @@ pub mod bun;
 pub mod cargo;
 pub mod dnf;
 pub mod flatpak;
+pub mod github;
 pub mod go;
 pub mod npm;
 pub mod pacman;
@@ -22,6 +23,7 @@ pub enum PackageManager {
     Cargo,
     Dnf,
     Flatpak,
+    GitHub,
     Npm,
     Pacman,
     Snap,
@@ -75,6 +77,7 @@ impl FromStr for PackageManager {
             "cargo" => Ok(PackageManager::Cargo),
             "dnf" => Ok(PackageManager::Dnf),
             "flatpak" => Ok(PackageManager::Flatpak),
+            "github" => Ok(PackageManager::GitHub),
             "npm" => Ok(PackageManager::Npm),
             "pacman" => Ok(PackageManager::Pacman),
             "snap" => Ok(PackageManager::Snap),
@@ -98,6 +101,7 @@ impl PackageManager {
             PackageManager::Cargo => Box::new(cargo::CargoProvider),
             PackageManager::Dnf => Box::new(dnf::DnfProvider),
             PackageManager::Flatpak => Box::new(flatpak::FlatpakProvider),
+            PackageManager::GitHub => Box::new(github::GitHubProvider),
             PackageManager::Npm => Box::new(npm::NpmProvider),
             PackageManager::Pacman => Box::new(pacman::PacmanProvider),
             PackageManager::Snap => Box::new(snap::SnapProvider),
