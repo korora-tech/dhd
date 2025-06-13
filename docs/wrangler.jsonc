@@ -7,7 +7,7 @@
 	},
 	"routes": [
 		{
-			"pattern": "shop.example.com",
+			"pattern": "dhd.korora.tech",
 			"custom_domain": true
 		}
 	]
