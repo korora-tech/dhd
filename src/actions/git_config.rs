@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use dhd_macros::{typescript_type, typescript_fn};
 
 use crate::actions::Action;
@@ -39,132 +38,62 @@ impl Action for GitConfig {
     }
 
     fn plan(&self, _module_dir: &Path) -> Vec<Box<dyn crate::atom::Atom>> {
-        let mut entries = Vec::new();
-        
-        // Process each scope
-        if let Some(global_config) = &self.global {
-            if let Some(obj) = global_config.as_object() {
-                let map: HashMap<String, HashMap<String, serde_json::Value>> = 
-                    obj.iter()
-                        .filter_map(|(k, v)| {
-                            v.as_object().map(|o| {
-                                let inner: HashMap<String, serde_json::Value> = 
-                                    o.iter().map(|(k2, v2)| (k2.clone(), v2.clone())).collect();
-                                (k.clone(), inner)
-                            })
-                        })
-                        .collect();
-                process_config_scope(&map, &mut entries, "global");
-            }
-        }
-        
-        if let Some(system_config) = &self.system {
-            if let Some(obj) = system_config.as_object() {
-                let map: HashMap<String, HashMap<String, serde_json::Value>> = 
-                    obj.iter()
-                        .filter_map(|(k, v)| {
-                            v.as_object().map(|o| {
-                                let inner: HashMap<String, serde_json::Value> = 
-                                    o.iter().map(|(k2, v2)| (k2.clone(), v2.clone())).collect();
-                                (k.clone(), inner)
-                            })
-                        })
-                        .collect();
-                process_config_scope(&map, &mut entries, "system");
-            }
-        }
-        
-        if let Some(local_config) = &self.local {
-            if let Some(obj) = local_config.as_object() {
-                let map: HashMap<String, HashMap<String, serde_json::Value>> = 
-                    obj.iter()
-                        .filter_map(|(k, v)| {
-                            v.as_object().map(|o| {
-                                let inner: HashMap<String, serde_json::Value> = 
-                                    o.iter().map(|(k2, v2)| (k2.clone(), v2.clone())).collect();
-                                (k.clone(), inner)
-                            })
-                        })
-                        .collect();
-                process_config_scope(&map, &mut entries, "local");
-            }
-        }
-        
-        // Create separate GitConfig actions for each scope
         let mut atoms: Vec<Box<dyn crate::atom::Atom>> = Vec::new();
         
-        if self.global.is_some() {
-            let global_entries: Vec<GitConfigEntry> = entries.iter()
-                .filter(|(_, _, scope)| *scope == "global")
-                .map(|(entry, _, _)| entry.clone())
-                .collect();
-            
-            if !global_entries.is_empty() {
-                let scope = crate::atoms::git_config::GitConfigScope::Global;
-                for entry in global_entries {
-                    atoms.push(Box::new(AtomCompat::new(
-                        Box::new(crate::atoms::git_config::GitConfig::new(
-                            vec![crate::atoms::git_config::GitConfigEntry {
-                                key: entry.key,
-                                value: entry.value,
-                                add: entry.add,
-                            }],
-                            scope.clone(),
-                            false,
-                        )),
-                        "git_config".to_string(),
-                    )));
-                }
+        // Process global config
+        if let Some(global_config) = &self.global {
+            let entries = process_config_value(global_config);
+            if !entries.is_empty() {
+                atoms.push(Box::new(AtomCompat::new(
+                    Box::new(crate::atoms::git_config::GitConfig::new(
+                        entries.into_iter().map(|e| crate::atoms::git_config::GitConfigEntry {
+                            key: e.key,
+                            value: e.value,
+                            add: e.add,
+                        }).collect(),
+                        crate::atoms::git_config::GitConfigScope::Global,
+                        false,
+                    )),
+                    "git_config".to_string(),
+                )));
             }
         }
         
-        if self.system.is_some() {
-            let system_entries: Vec<GitConfigEntry> = entries.iter()
-                .filter(|(_, _, scope)| *scope == "system")
-                .map(|(entry, _, _)| entry.clone())
-                .collect();
-            
-            if !system_entries.is_empty() {
-                let scope = crate::atoms::git_config::GitConfigScope::System;
-                for entry in system_entries {
-                    atoms.push(Box::new(AtomCompat::new(
-                        Box::new(crate::atoms::git_config::GitConfig::new(
-                            vec![crate::atoms::git_config::GitConfigEntry {
-                                key: entry.key,
-                                value: entry.value,
-                                add: entry.add,
-                            }],
-                            scope.clone(),
-                            false,
-                        )),
-                        "git_config".to_string(),
-                    )));
-                }
+        // Process system config
+        if let Some(system_config) = &self.system {
+            let entries = process_config_value(system_config);
+            if !entries.is_empty() {
+                atoms.push(Box::new(AtomCompat::new(
+                    Box::new(crate::atoms::git_config::GitConfig::new(
+                        entries.into_iter().map(|e| crate::atoms::git_config::GitConfigEntry {
+                            key: e.key,
+                            value: e.value,
+                            add: e.add,
+                        }).collect(),
+                        crate::atoms::git_config::GitConfigScope::System,
+                        false,
+                    )),
+                    "git_config".to_string(),
+                )));
             }
         }
         
-        if self.local.is_some() {
-            let local_entries: Vec<GitConfigEntry> = entries.iter()
-                .filter(|(_, _, scope)| *scope == "local")
-                .map(|(entry, _, _)| entry.clone())
-                .collect();
-            
-            if !local_entries.is_empty() {
-                let scope = crate::atoms::git_config::GitConfigScope::Local;
-                for entry in local_entries {
-                    atoms.push(Box::new(AtomCompat::new(
-                        Box::new(crate::atoms::git_config::GitConfig::new(
-                            vec![crate::atoms::git_config::GitConfigEntry {
-                                key: entry.key,
-                                value: entry.value,
-                                add: entry.add,
-                            }],
-                            scope.clone(),
-                            false,
-                        )),
-                        "git_config".to_string(),
-                    )));
-                }
+        // Process local config
+        if let Some(local_config) = &self.local {
+            let entries = process_config_value(local_config);
+            if !entries.is_empty() {
+                atoms.push(Box::new(AtomCompat::new(
+                    Box::new(crate::atoms::git_config::GitConfig::new(
+                        entries.into_iter().map(|e| crate::atoms::git_config::GitConfigEntry {
+                            key: e.key,
+                            value: e.value,
+                            add: e.add,
+                        }).collect(),
+                        crate::atoms::git_config::GitConfigScope::Local,
+                        false,
+                    )),
+                    "git_config".to_string(),
+                )));
             }
         }
         
@@ -172,78 +101,72 @@ impl Action for GitConfig {
     }
 }
 
-/// Process a configuration scope and collect entries
-fn process_config_scope(
-    config: &HashMap<String, HashMap<String, serde_json::Value>>,
-    entries: &mut Vec<(GitConfigEntry, bool, &'static str)>,
-    scope: &'static str,
-) {
-    for (section_name, section) in config {
-        for (key, value) in section {
-            let full_key = if key.is_empty() {
-                section_name.clone()
-            } else {
-                format!("{}.{}", section_name, key)
-            };
-            
-            match value {
-                serde_json::Value::String(val) => {
-                    entries.push((
-                        GitConfigEntry {
-                            key: full_key,
-                            value: val.clone(),
-                            add: None,
-                        },
-                        false,
-                        scope,
-                    ));
-                }
-                serde_json::Value::Bool(val) => {
-                    entries.push((
-                        GitConfigEntry {
-                            key: full_key,
-                            value: val.to_string(),
-                            add: None,
-                        },
-                        false,
-                        scope,
-                    ));
-                }
-                serde_json::Value::Number(val) => {
-                    entries.push((
-                        GitConfigEntry {
-                            key: full_key,
-                            value: val.to_string(),
-                            add: None,
-                        },
-                        false,
-                        scope,
-                    ));
-                }
-                serde_json::Value::Array(values) => {
-                    // For arrays, we need to set each one with add=true
-                    for val in values {
-                        if let Some(string_val) = val.as_str() {
-                            entries.push((
-                                GitConfigEntry {
-                                    key: full_key.clone(),
-                                    value: string_val.to_string(),
-                                    add: Some(true),
-                                },
-                                true,
-                                scope,
-                            ));
-                        }
-                    }
-                }
-                _ => {}
+/// Process a configuration value and return a flat list of entries
+fn process_config_value(config: &serde_json::Value) -> Vec<GitConfigEntry> {
+    let mut entries = Vec::new();
+    
+    if let Some(obj) = config.as_object() {
+        for (section_name, section_value) in obj {
+            process_section(section_name, section_value, &mut entries);
+        }
+    }
+    
+    entries
+}
+
+/// Process a configuration section recursively
+fn process_section(prefix: &str, value: &serde_json::Value, entries: &mut Vec<GitConfigEntry>) {
+    match value {
+        serde_json::Value::Object(obj) => {
+            // This is a nested section
+            for (key, val) in obj {
+                let full_key = if key.is_empty() {
+                    prefix.to_string()
+                } else {
+                    format!("{}.{}", prefix, key)
+                };
+                process_section(&full_key, val, entries);
             }
         }
+        serde_json::Value::String(val) => {
+            entries.push(GitConfigEntry {
+                key: prefix.to_string(),
+                value: val.clone(),
+                add: None,
+            });
+        }
+        serde_json::Value::Bool(val) => {
+            entries.push(GitConfigEntry {
+                key: prefix.to_string(),
+                value: val.to_string(),
+                add: None,
+            });
+        }
+        serde_json::Value::Number(val) => {
+            entries.push(GitConfigEntry {
+                key: prefix.to_string(),
+                value: val.to_string(),
+                add: None,
+            });
+        }
+        serde_json::Value::Array(values) => {
+            // For arrays, each value becomes a separate entry with add=true
+            for val in values {
+                if let Some(string_val) = val.as_str() {
+                    entries.push(GitConfigEntry {
+                        key: prefix.to_string(),
+                        value: string_val.to_string(),
+                        add: Some(true),
+                    });
+                }
+            }
+        }
+        _ => {}
     }
 }
 
 
 #[typescript_fn]
-pub fn gitConfig(config: GitConfig) -> crate::actions::ActionType {
+pub fn git_config(config: GitConfig) -> crate::actions::ActionType {
     crate::actions::ActionType::GitConfig(config)
 }
