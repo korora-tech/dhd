@@ -6,7 +6,6 @@ pub mod git_config;
 pub mod gnome_extension;
 pub mod http_download;
 pub mod install_packages;
-pub mod install_packages_v2;
 pub mod link_file;
 pub mod package;
 pub mod remove_packages;

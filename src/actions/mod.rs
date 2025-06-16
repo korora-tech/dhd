@@ -13,7 +13,6 @@ pub mod http_download;
 pub mod link_directory;
 pub mod link_file;
 pub mod package_install;
-pub mod package_install_v2;
 pub mod package_remove;
 pub mod systemd_manage;
 pub mod systemd_service;
