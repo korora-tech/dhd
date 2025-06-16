@@ -21,7 +21,7 @@ pub mod systemd_socket;
 
 pub use condition::{
     Condition, ComparisonOperator, all_of, any_of, and, or, command, command_exists, 
-    command_succeeds, directory_exists, env_var, file_exists, not, property,
+    command_succeeds, directory_exists, env_var, file_exists, not, property, secret_exists,
 };
 pub use conditional::{ConditionalAction, only_if, skip_if};
 pub use copy_file::{CopyFile, copy_file};

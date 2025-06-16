@@ -29,6 +29,9 @@ pub enum DhdError {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    #[error("Execution engine error: {0}")]
+    ExecutionEngine(String),
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

@@ -1,6 +1,7 @@
 use crate::ActionType;
 use crate::atoms::AtomCompat;
 use dhd_macros::{typescript_fn, typescript_type};
+use std::collections::HashMap;
 
 use super::Action;
 
@@ -27,6 +28,13 @@ pub struct ExecuteCommand {
     /// If set to true, the command will be executed with elevated privileges.
     /// If not specified, defaults to false.
     pub escalate: Option<bool>,
+    /// Environment variables with secret references.
+    ///
+    /// Keys are environment variable names, values are secret references like:
+    /// - "op://vault/item/field" for 1Password
+    /// - "env://VAR_NAME" for environment variables
+    /// - "literal://value" for literal values
+    pub environment: Option<HashMap<String, String>>,
 }
 
 #[typescript_fn]
@@ -61,6 +69,7 @@ impl Action for ExecuteCommand {
                 shell,
                 command: full_command,
                 escalate: self.escalate.unwrap_or(false),
+                environment: self.environment.clone(),
             }),
             "execute_command".to_string(),
         ))]
@@ -75,14 +84,15 @@ mod tests {
     fn test_execute_command_creation() {
         let action = ExecuteCommand {
             shell: Some("bash".to_string()),
-            command: "echo hello".to_string(),
-            args: None,
+            command: "git config --global user.name".to_string(),
+            args: Some(vec!["John Doe".to_string()]),
             escalate: Some(false),
+            environment: None,
         };
 
         assert_eq!(action.shell, Some("bash".to_string()));
-        assert_eq!(action.command, "echo hello");
-        assert_eq!(action.args, None);
+        assert_eq!(action.command, "git config --global user.name");
+        assert_eq!(action.args, Some(vec!["John Doe".to_string()]));
         assert_eq!(action.escalate, Some(false));
     }
 
@@ -90,15 +100,16 @@ mod tests {
     fn test_execute_command_helper_function() {
         let action = execute_command(ExecuteCommand {
             shell: Some("sh".to_string()),
-            command: "ls -la".to_string(),
+            command: "docker compose up -d".to_string(),
             args: None,
             escalate: Some(false),
+            environment: None,
         });
 
         match action {
             ActionType::ExecuteCommand(cmd) => {
                 assert_eq!(cmd.shell, Some("sh".to_string()));
-                assert_eq!(cmd.command, "ls -la");
+                assert_eq!(cmd.command, "docker compose up -d");
                 assert_eq!(cmd.escalate, Some(false));
             }
             _ => panic!("Expected ExecuteCommand action type"),
@@ -109,9 +120,10 @@ mod tests {
     fn test_execute_command_name() {
         let action = ExecuteCommand {
             shell: Some("bash".to_string()),
-            command: "echo test".to_string(),
+            command: "systemctl status nginx".to_string(),
             args: None,
             escalate: Some(false),
+            environment: None,
         };
 
         assert_eq!(action.name(), "ExecuteCommand");
@@ -121,9 +133,10 @@ mod tests {
     fn test_execute_command_plan() {
         let action = ExecuteCommand {
             shell: Some("zsh".to_string()),
-            command: "pwd".to_string(),
+            command: "ssh-keygen -t ed25519 -C \"user@example.com\"".to_string(),
             args: None,
             escalate: Some(false),
+            environment: None,
         };
 
         let atoms = action.plan(std::path::Path::new("."));
@@ -134,12 +147,13 @@ mod tests {
 
     #[test]
     fn test_execute_command_plan_complex() {
-        let complex_command = "cd /tmp && echo 'test' > file.txt && cat file.txt";
+        let complex_command = "curl -fsSL https://get.docker.com | sh && usermod -aG docker $USER";
         let action = ExecuteCommand {
             shell: Some("bash".to_string()),
             command: complex_command.to_string(),
             args: None,
-            escalate: Some(false),
+            escalate: Some(true),
+            environment: None,
         };
 
         let atoms = action.plan(std::path::Path::new("."));
@@ -158,9 +172,10 @@ mod tests {
         for shell in shells {
             let action = ExecuteCommand {
                 shell: Some(shell.to_string()),
-                command: "echo test".to_string(),
+                command: "kubectl get pods --all-namespaces".to_string(),
                 args: None,
                 escalate: Some(false),
+                environment: None,
             };
 
             let atoms = action.plan(std::path::Path::new("."));
@@ -177,6 +192,7 @@ mod tests {
             command: "systemctl".to_string(),
             args: Some(vec!["disable".to_string(), "docker.service".to_string()]),
             escalate: Some(true),
+            environment: None,
         };
 
         let atoms = action.plan(std::path::Path::new("."));
@@ -189,9 +205,10 @@ mod tests {
     fn test_execute_command_default_shell() {
         let action = ExecuteCommand {
             shell: None,
-            command: "echo".to_string(),
-            args: Some(vec!["hello world".to_string()]),
-            escalate: Some(false),
+            command: "certbot".to_string(),
+            args: Some(vec!["certonly".to_string(), "--standalone".to_string(), "-d".to_string(), "example.com".to_string()]),
+            escalate: Some(true),
+            environment: None,
         };
 
         let atoms = action.plan(std::path::Path::new("."));

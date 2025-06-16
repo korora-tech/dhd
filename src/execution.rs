@@ -1,11 +1,13 @@
 use crate::{
-    actions::Action,
+    actions::{Action, ActionType},
     dag_executor::{DagExecutor, ExecutionSummary},
     error::{DhdError, Result},
     loader::LoadedModule,
+    secrets::{onepassword::OnePasswordProvider, SecretProvider, SecretResolver},
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Instant;
+use tokio::runtime::Runtime;
 
 thread_local! {
     pub static VERBOSE_MODE: std::cell::RefCell<bool> = std::cell::RefCell::new(false);
@@ -15,15 +17,34 @@ pub struct ExecutionEngine {
     concurrency: usize,
     dry_run: bool,
     verbose: bool,
+    secret_provider: Option<Box<dyn SecretProvider>>,
 }
 
 impl ExecutionEngine {
     pub fn new(concurrency: usize, dry_run: bool, verbose: bool) -> Self {
+        // Initialize with 1Password provider if available
+        let secret_provider: Option<Box<dyn SecretProvider>> = if std::process::Command::new("op")
+            .arg("--version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+        {
+            Some(Box::new(OnePasswordProvider::new(None)))
+        } else {
+            None
+        };
+
         Self {
             concurrency,
             dry_run,
             verbose,
+            secret_provider,
         }
+    }
+
+    pub fn with_secret_provider(mut self, provider: Box<dyn SecretProvider>) -> Self {
+        self.secret_provider = Some(provider);
+        self
     }
 
     pub fn execute(&self, modules: Vec<LoadedModule>) -> Result<()> {
@@ -37,6 +58,16 @@ impl ExecutionEngine {
 
         // Set verbose mode for the planning phase
         VERBOSE_MODE.with(|v| *v.borrow_mut() = self.verbose);
+
+        // Create a runtime for async operations if we have a secret provider
+        let rt = if self.secret_provider.is_some() {
+            Some(tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| DhdError::ExecutionEngine(format!("Failed to create async runtime: {}", e)))?)
+        } else {
+            None
+        };
 
         if self.verbose {
             println!("📋 Planning modules with verbose output...\n");
@@ -65,8 +96,7 @@ impl ExecutionEngine {
                 if should_execute {
                     let module_atoms_before = total_atoms;
                     for action in module.definition.actions {
-                        let atoms =
-                            action.plan(std::path::Path::new(&module.source.path).parent().unwrap());
+                        let atoms = self.plan_action_with_secrets(&action, &module.source.path.parent().unwrap_or(std::path::Path::new(".")), &rt)?;
                         for atom in atoms {
                             total_atoms += 1;
                             dag.add_atom(atom);
@@ -105,8 +135,7 @@ impl ExecutionEngine {
 
                 if should_execute {
                     for action in module.definition.actions {
-                        let atoms =
-                            action.plan(std::path::Path::new(&module.source.path).parent().unwrap());
+                        let atoms = self.plan_action_with_secrets(&action, &module.source.path.parent().unwrap_or(std::path::Path::new(".")), &rt)?;
                         for atom in atoms {
                             total_atoms += 1;
                             dag.add_atom(atom);
@@ -160,5 +189,43 @@ impl ExecutionEngine {
                 println!("   - {}: {}", id, error);
             }
         }
+    }
+
+    fn plan_action_with_secrets(
+        &self,
+        action: &ActionType,
+        module_dir: &std::path::Path,
+        rt: &Option<Runtime>,
+    ) -> Result<Vec<Box<dyn crate::atom::Atom>>> {
+        // Check if this is an ExecuteCommand with environment variables that need secret resolution
+        if let ActionType::ExecuteCommand(cmd) = action {
+            if let Some(env) = &cmd.environment {
+                if let (Some(provider), Some(runtime)) = (&self.secret_provider, rt) {
+                    // Create a resolver for this action
+                    let mut resolver = SecretResolver::new();
+                    
+                    // Resolve secrets
+                    match runtime.block_on(resolver.resolve_map(env, provider.as_ref())) {
+                        Ok(resolved_env) => {
+                            // Create a modified command with resolved secrets
+                            let mut modified_cmd = cmd.clone();
+                            modified_cmd.environment = Some(resolved_env);
+                            
+                            // Plan with the modified command
+                            return Ok(modified_cmd.plan(module_dir));
+                        }
+                        Err(e) => {
+                            return Err(DhdError::ExecutionEngine(format!(
+                                "Failed to resolve secrets: {}",
+                                e
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+        
+        // For all other actions or when no secrets need resolution
+        Ok(action.plan(module_dir))
     }
 }

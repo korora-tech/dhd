@@ -38,7 +38,7 @@ mod tests {
 
     #[test]
     fn test_package_install_creation() {
-        let packages = vec!["vim".to_string(), "git".to_string()];
+        let packages = vec!["docker".to_string(), "docker-compose".to_string(), "kubectl".to_string()];
         let action = PackageInstall {
             names: packages.clone(),
             manager: None,
@@ -51,13 +51,13 @@ mod tests {
     #[test]
     fn test_package_install_helper_function() {
         let action = package_install(PackageInstall {
-            names: vec!["vim".to_string()],
+            names: vec!["postgresql-client".to_string(), "redis-tools".to_string()],
             manager: None,
         });
 
         match action {
             ActionType::PackageInstall(pkg) => {
-                assert_eq!(pkg.names, vec!["vim".to_string()]);
+                assert_eq!(pkg.names, vec!["postgresql-client".to_string(), "redis-tools".to_string()]);
                 assert_eq!(pkg.manager, None);
             }
             _ => panic!("Expected PackageInstall action type"),
@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_package_install_name() {
         let action = PackageInstall {
-            names: vec!["vim".to_string()],
+            names: vec!["nginx".to_string()],
             manager: None,
         };
 
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn test_package_install_plan() {
         let action = PackageInstall {
-            names: vec!["vim".to_string(), "git".to_string()],
+            names: vec!["rustup".to_string(), "cargo-watch".to_string(), "cargo-edit".to_string()],
             manager: None,
         };
 
@@ -90,11 +90,11 @@ mod tests {
     #[test]
     fn test_package_install_with_manager() {
         let action = PackageInstall {
-            names: vec!["@anthropic-ai/claude-code".to_string()],
+            names: vec!["@nestjs/cli".to_string(), "@angular/cli".to_string(), "vite".to_string()],
             manager: Some(PackageManager::Bun),
         };
 
-        assert_eq!(action.names, vec!["@anthropic-ai/claude-code".to_string()]);
+        assert_eq!(action.names, vec!["@nestjs/cli".to_string(), "@angular/cli".to_string(), "vite".to_string()]);
         assert_eq!(action.manager, Some(PackageManager::Bun));
 
         let atoms = action.plan(std::path::Path::new("."));

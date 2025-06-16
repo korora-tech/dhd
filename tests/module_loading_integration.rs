@@ -7,11 +7,11 @@ fn test_load_module_with_tags() {
     let temp_dir = TempDir::new().unwrap();
 
     let module_content = r#"
-export default defineModule("test-app")
-    .description("A test application")
-    .tags("desktop", "productivity", "test")
+export default defineModule("vscode")
+    .description("Visual Studio Code - Modern code editor")
+    .tags("development", "editor", "ide")
     .actions([
-        packageInstall({ names: ["test-app"] })
+        packageInstall({ names: ["code"] })
     ]);
 "#;
 
@@ -24,9 +24,9 @@ export default defineModule("test-app")
     assert_eq!(loaded.len(), 1);
 
     let module = &loaded[0].as_ref().unwrap().definition;
-    assert_eq!(module.name, "test-app");
-    assert_eq!(module.description, Some("A test application".to_string()));
-    assert_eq!(module.tags, vec!["desktop", "productivity", "test"]);
+    assert_eq!(module.name, "vscode");
+    assert_eq!(module.description, Some("Visual Studio Code - Modern code editor".to_string()));
+    assert_eq!(module.tags, vec!["development", "editor", "ide"]);
 }
 
 #[test]
@@ -34,11 +34,11 @@ fn test_load_module_with_dependencies() {
     let temp_dir = TempDir::new().unwrap();
 
     let module_content = r#"
-export default defineModule("niri")
-    .description("Window manager")
-    .dependsOn(["waybar", "swaync", "fuzzel"])
+export default defineModule("kubernetes-tools")
+    .description("Kubernetes development tools")
+    .dependsOn(["docker", "helm", "kubectl"])
     .actions([
-        packageInstall({ names: ["niri"] })
+        packageInstall({ names: ["kubectx", "kubens", "k9s"] })
     ]);
 "#;
 
@@ -48,8 +48,8 @@ export default defineModule("niri")
     let loaded = load_modules(discovered);
 
     let module = &loaded[0].as_ref().unwrap().definition;
-    assert_eq!(module.name, "niri");
-    assert_eq!(module.dependencies, vec!["waybar", "swaync", "fuzzel"]);
+    assert_eq!(module.name, "kubernetes-tools");
+    assert_eq!(module.dependencies, vec!["docker", "helm", "kubectl"]);
 }
 
 #[test]
@@ -57,23 +57,23 @@ fn test_load_module_with_all_features() {
     let temp_dir = TempDir::new().unwrap();
 
     let module_content = r#"
-export default defineModule("complex-app")
-    .description("A complex application with all features")
-    .tags("development", "tools")
-    .dependsOn(["base-lib"])
+export default defineModule("postgresql-dev")
+    .description("PostgreSQL development environment with tools")
+    .tags("database", "development", "sql")
+    .dependsOn(["docker"])
     .actions([
         packageInstall({ 
-            names: ["complex-app", "complex-app-plugins"],
-            manager: "bun"
+            names: ["postgresql-client", "pgcli", "pg-top"],
+            manager: "apt"
         }),
         executeCommand({
-            command: "complex-app",
-            args: ["--init", "--config", "/etc/complex-app.conf"],
-            escalate: true
+            command: "docker run -d --name postgres-dev -e POSTGRES_PASSWORD=devpass -p 5432:5432 postgres:16",
+            args: [],
+            escalate: false
         }),
         linkFile({
-            source: "complex-app.conf",
-            target: "~/.config/complex-app/config.conf",
+            source: "pgpass",
+            target: "~/.pgpass",
             force: true
         })
     ]);
@@ -85,9 +85,9 @@ export default defineModule("complex-app")
     let loaded = load_modules(discovered);
 
     let module = &loaded[0].as_ref().unwrap().definition;
-    assert_eq!(module.name, "complex-app");
-    assert_eq!(module.tags.len(), 2);
-    assert_eq!(module.dependencies, vec!["base-lib"]);
+    assert_eq!(module.name, "postgresql-dev");
+    assert_eq!(module.tags.len(), 3);
+    assert_eq!(module.dependencies, vec!["docker"]);
     assert_eq!(module.actions.len(), 3);
 }
 
@@ -171,13 +171,13 @@ fn test_load_module_with_method_chaining() {
     let module_content = r#"
 import { defineModule, packageInstall } from "dhd";
 
-export default defineModule("chained")
-    .description("Test method chaining")
-    .tags("test", "example")
-    .dependsOn(["dep1", "dep2"])
-    .tags("additional")
+export default defineModule("rust-dev")
+    .description("Rust development environment")
+    .tags("rust", "development", "programming")
+    .dependsOn(["git", "curl"])
+    .tags("systems")
     .actions([
-        packageInstall({ names: ["pkg1"] })
+        packageInstall({ names: ["rustup", "cargo-watch", "cargo-edit"] })
     ]);
 "#;
 
@@ -187,16 +187,17 @@ export default defineModule("chained")
     let loaded = load_modules(discovered);
 
     let module = &loaded[0].as_ref().unwrap().definition;
-    assert_eq!(module.name, "chained");
+    assert_eq!(module.name, "rust-dev");
     // Tags should accumulate
-    assert_eq!(module.tags.len(), 3);
-    assert!(module.tags.contains(&"test".to_string()));
-    assert!(module.tags.contains(&"example".to_string()));
-    assert!(module.tags.contains(&"additional".to_string()));
+    assert_eq!(module.tags.len(), 4);
+    assert!(module.tags.contains(&"rust".to_string()));
+    assert!(module.tags.contains(&"development".to_string()));
+    assert!(module.tags.contains(&"programming".to_string()));
+    assert!(module.tags.contains(&"systems".to_string()));
     // Dependencies should accumulate
     assert_eq!(module.dependencies.len(), 2);
-    assert!(module.dependencies.contains(&"dep1".to_string()));
-    assert!(module.dependencies.contains(&"dep2".to_string()));
+    assert!(module.dependencies.contains(&"git".to_string()));
+    assert!(module.dependencies.contains(&"curl".to_string()));
 }
 
 #[test]
@@ -269,14 +270,14 @@ fn test_module_action_counting() {
     let temp_dir = TempDir::new().unwrap();
 
     let module_content = r#"
-export default defineModule("multi-action")
-    .description("Module with multiple actions")
+export default defineModule("nginx-setup")
+    .description("Complete NGINX web server setup")
     .actions([
-        packageInstall({ names: ["tool1", "tool2"] }),
-        linkFile({ source: "config1.toml", target: "~/.config/tool1/config.toml" }),
-        linkFile({ source: "config2.toml", target: "~/.config/tool2/config.toml" }),
-        executeCommand({ command: "tool1", args: ["--init"] }),
-        executeCommand({ command: "tool2", args: ["--setup"] })
+        packageInstall({ names: ["nginx", "certbot", "python3-certbot-nginx"] }),
+        linkFile({ source: "nginx.conf", target: "/etc/nginx/nginx.conf" }),
+        linkFile({ source: "sites-available/default", target: "/etc/nginx/sites-available/default" }),
+        executeCommand({ command: "systemctl", args: ["enable", "nginx"] }),
+        executeCommand({ command: "certbot", args: ["--nginx", "-d", "example.com", "--non-interactive", "--agree-tos", "-m", "admin@example.com"] })
     ]);
 "#;
 
@@ -295,9 +296,9 @@ fn test_empty_module_actions() {
     let temp_dir = TempDir::new().unwrap();
 
     let module_content = r#"
-export default defineModule("empty")
-    .description("Module with no actions")
-    .tags("test")
+export default defineModule("documentation-only")
+    .description("Module for documentation purposes only")
+    .tags("docs", "meta")
     .actions([]);
 "#;
 
@@ -316,13 +317,13 @@ fn test_module_with_all_action_types() {
     let temp_dir = TempDir::new().unwrap();
 
     let module_content = r#"
-export default defineModule("all-actions")
-    .description("Module demonstrating all action types")
+export default defineModule("development-environment")
+    .description("Complete development environment setup")
     .actions([
-        packageInstall({ names: ["package1"] }),
-        linkFile({ source: "dotfile", target: "~/.dotfile" }),
-        executeCommand({ command: "echo", args: ["test"] }),
-        directory({ path: "/test/dir" })
+        packageInstall({ names: ["git", "vim", "tmux", "zsh"] }),
+        linkFile({ source: "gitconfig", target: "~/.gitconfig" }),
+        executeCommand({ command: "chsh", args: ["-s", "/usr/bin/zsh"] }),
+        directory({ path: "~/.config/nvim" })
     ]);
 "#;
 

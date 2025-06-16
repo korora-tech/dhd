@@ -9,7 +9,8 @@ fn test_execute_command_with_args_and_escalate() {
         shell: None, // Should default to "sh"
         command: "systemctl".to_string(),
         args: Some(vec!["status".to_string(), "docker".to_string()]),
-        escalate: true,
+        escalate: Some(true),
+        environment: None,
     };
 
     // Verify the action properties
@@ -18,7 +19,7 @@ fn test_execute_command_with_args_and_escalate() {
         action.args,
         Some(vec!["status".to_string(), "docker".to_string()])
     );
-    assert!(action.escalate);
+    assert_eq!(action.escalate, Some(true));
 
     // Test planning
     let atoms = action.plan(std::path::Path::new("."));
@@ -37,13 +38,16 @@ fn test_execute_command_with_args_and_escalate() {
 fn test_execute_command_args_with_spaces() {
     let action = ExecuteCommand {
         shell: Some("bash".to_string()),
-        command: "echo".to_string(),
+        command: "git".to_string(),
         args: Some(vec![
-            "hello world".to_string(),
-            "with spaces".to_string(),
-            "and \"quotes\"".to_string(),
+            "commit".to_string(),
+            "-m".to_string(),
+            "feat: add new feature with spaces".to_string(),
+            "--author".to_string(),
+            "John Doe <john@example.com>".to_string(),
         ]),
-        escalate: false,
+        escalate: Some(false),
+        environment: None,
     };
 
     let atoms = action.plan(std::path::Path::new("."));
@@ -51,7 +55,7 @@ fn test_execute_command_args_with_spaces() {
 
     // The command should properly quote arguments with spaces
     let description = atoms[0].describe();
-    assert!(description.contains("echo"));
+    assert!(description.contains("git"));
 }
 
 #[test]
@@ -66,7 +70,7 @@ fn test_package_install_with_different_managers() {
 
     for manager in managers {
         let action = PackageInstall {
-            names: vec!["test-package".to_string()],
+            names: vec!["neovim".to_string()],
             manager: Some(manager.clone()),
         };
 
@@ -82,7 +86,7 @@ fn test_package_install_with_different_managers() {
 #[test]
 fn test_package_install_auto_detect() {
     let action = PackageInstall {
-        names: vec!["vim".to_string(), "git".to_string()],
+        names: vec!["ripgrep".to_string(), "fd-find".to_string(), "bat".to_string()],
         manager: None, // Should auto-detect
     };
 
@@ -102,10 +106,10 @@ fn test_link_file_with_force() {
     let target = temp_dir.path().join("target.conf");
 
     // Create target file (what the symlink will point to)
-    fs::write(&target, "test content").unwrap();
+    fs::write(&target, "[user]\n    name = Developer\n    email = dev@example.com").unwrap();
 
     // Create an existing file at source location that should be overwritten
-    fs::write(&source, "old content").unwrap();
+    fs::write(&source, "# Old git config").unwrap();
 
     let action = LinkFile {
         source: source.to_string_lossy().to_string(),
@@ -132,16 +136,16 @@ fn test_link_directory_basic() {
     fs::create_dir(&module_dir).unwrap();
     
     // Create a target directory in the module
-    let target_dir = module_dir.join("config");
+    let target_dir = module_dir.join("nvim-config");
     fs::create_dir(&target_dir).unwrap();
-    fs::write(target_dir.join("test.txt"), "test content").unwrap();
+    fs::write(target_dir.join("init.lua"), "-- Neovim configuration\nvim.o.number = true").unwrap();
     
     // Create the symlink location
-    let source = temp_dir.path().join("myapp");
+    let source = temp_dir.path().join(".config/nvim");
     
     let action = LinkDirectory {
         source: source.to_string_lossy().to_string(),
-        target: "config".to_string(),
+        target: "nvim-config".to_string(),
         force: true,
     };
     
@@ -161,10 +165,10 @@ fn test_link_directory_basic() {
     assert_eq!(link_target, target_dir, "Symlink points to wrong target");
     
     // Verify we can access content through the symlink
-    let test_file = source.join("test.txt");
-    assert!(test_file.exists(), "Cannot access file through symlink");
-    let content = fs::read_to_string(&test_file).unwrap();
-    assert_eq!(content, "test content", "Wrong content through symlink");
+    let config_file = source.join("init.lua");
+    assert!(config_file.exists(), "Cannot access file through symlink");
+    let content = fs::read_to_string(&config_file).unwrap();
+    assert!(content.contains("vim.o.number = true"), "Wrong content through symlink");
 }
 
 #[test]
@@ -174,17 +178,17 @@ fn test_link_directory_overwrites_with_force() {
     fs::create_dir(&module_dir).unwrap();
     
     // Create a target directory in the module
-    let target_dir = module_dir.join("config");
+    let target_dir = module_dir.join("ssh-config");
     fs::create_dir(&target_dir).unwrap();
     
     // Create an existing directory at source location
-    let source = temp_dir.path().join("existing");
+    let source = temp_dir.path().join(".ssh");
     fs::create_dir(&source).unwrap();
-    fs::write(source.join("old.txt"), "old content").unwrap();
+    fs::write(source.join("config"), "# Old SSH config").unwrap();
     
     let action = LinkDirectory {
         source: source.to_string_lossy().to_string(),
-        target: "config".to_string(),
+        target: "ssh-config".to_string(),
         force: true,
     };
     
@@ -200,7 +204,7 @@ fn test_link_directory_overwrites_with_force() {
     assert!(source.symlink_metadata().unwrap().file_type().is_symlink(), "Source is not a symlink");
     
     // Old file should not be accessible
-    assert!(!source.join("old.txt").exists(), "Old file still accessible");
+    assert!(!source.join("config").exists(), "Old file still accessible");
 }
 
 #[test]
@@ -216,7 +220,8 @@ fn test_complex_action_combination() {
             shell: None,
             command: "systemctl".to_string(),
             args: Some(vec!["enable".to_string(), "docker".to_string()]),
-            escalate: true,
+            escalate: Some(true),
+            environment: None,
         }),
         ActionType::LinkFile(LinkFile {
             source: "docker-config.json".to_string(),

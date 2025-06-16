@@ -10,6 +10,7 @@ pub mod execution;
 pub mod loader;
 pub mod module;
 pub mod platform;
+pub mod secrets;
 pub mod system_info;
 pub mod typescript;
 pub mod utils;

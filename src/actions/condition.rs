@@ -1,165 +1,195 @@
-use dhd_macros::{typescript_enum, typescript_fn, typescript_type, typescript_impl};
-use serde::{Deserialize, Serialize};
+use crate::execution::VERBOSE_MODE;
+use crate::system_info::SystemInfo;
+use dhd_macros::{typescript_enum, typescript_fn, typescript_impl, typescript_type};
+use std::path::Path;
+use std::process::Command;
 
-/// Represents different types of conditions that can be evaluated
-#[derive(Serialize, Deserialize)]
-#[typescript_enum]
-pub enum Condition {
-    /// Check if a file exists
-    FileExists { path: String },
-    /// Check if a directory exists
-    DirectoryExists { path: String },
-    /// Check if a command succeeds
-    CommandSucceeds {
-        command: String,
-        args: Option<Vec<String>>,
-    },
-    /// Check environment variable
-    EnvironmentVariable { name: String, value: Option<String> },
-    /// Check system property
-    SystemProperty { 
-        path: String,  // e.g., "hardware.fingerprint", "os.family"
-        value: serde_json::Value,  // Expected value
-        operator: ComparisonOperator,
-    },
-    /// Check if a command exists in PATH
-    CommandExists { command: String },
-    /// All conditions must pass
-    AllOf { conditions: Vec<Condition> },
-    /// At least one condition must pass
-    AnyOf { conditions: Vec<Condition> },
-    /// Negate a condition
-    Not { condition: Box<Condition> },
+fn get_property_value(info: &SystemInfo, path: &str) -> Option<String> {
+    let parts: Vec<&str> = path.split('.').collect();
+    
+    match parts.as_slice() {
+        ["os", "family"] => Some(info.os.family.clone()),
+        ["os", "distro"] => Some(info.os.distro.clone()),
+        ["os", "version"] => Some(info.os.version.clone()),
+        ["os", "codename"] => Some(info.os.codename.clone()),
+        ["hardware", "fingerprint"] => Some(info.hardware.fingerprint.to_string()),
+        ["hardware", "tpm"] => Some(info.hardware.tpm.to_string()),
+        ["hardware", "gpu_vendor"] => Some(info.hardware.gpu_vendor.clone()),
+        ["auth", "auth_type"] => Some(info.auth.auth_type.clone()),
+        ["auth", "method"] => Some(info.auth.method.clone()),
+        ["user", "name"] => Some(info.user.name.clone()),
+        ["user", "shell"] => Some(info.user.shell.clone()),
+        ["user", "home"] => Some(info.user.home.clone()),
+        _ => None,
+    }
 }
 
-#[derive(Serialize, Deserialize)]
 #[typescript_enum]
 pub enum ComparisonOperator {
     Equals,
     NotEquals,
     Contains,
-    GreaterThan,
-    LessThan,
+    StartsWith,
+    EndsWith,
+}
+
+#[typescript_enum]
+pub enum Condition {
+    // Core logical operators
+    AllOf { conditions: Vec<Condition> },
+    AnyOf { conditions: Vec<Condition> },
+    Not { condition: Box<Condition> },
+    
+    // File system conditions
+    FileExists { path: String },
+    DirectoryExists { path: String },
+    
+    // Command conditions
+    CommandExists { command: String },
+    CommandSucceeds { command: String, args: Option<Vec<String>> },
+    
+    // Environment conditions
+    EnvironmentVariable { name: String, value: Option<String> },
+    
+    // System property conditions
+    SystemProperty { path: String, operator: ComparisonOperator, value: String },
+    
+    // Secret conditions
+    SecretExists { reference: String },
 }
 
 impl Condition {
-    /// Evaluate the condition
     pub fn evaluate(&self) -> Result<bool, String> {
-        match self {
+        let verbose = VERBOSE_MODE.with(|v| *v.borrow());
+        
+        let result = match self {
+            Condition::AllOf { conditions } => {
+                for (i, condition) in conditions.iter().enumerate() {
+                    match condition.evaluate() {
+                        Ok(true) => continue,
+                        Ok(false) => {
+                            if verbose {
+                                println!("        ✗ Condition {} of {} failed: {}", i + 1, conditions.len(), condition.describe());
+                            }
+                            return Ok(false);
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+                true
+            }
+            
+            Condition::AnyOf { conditions } => {
+                for (i, condition) in conditions.iter().enumerate() {
+                    match condition.evaluate() {
+                        Ok(true) => {
+                            if verbose {
+                                println!("        ✓ Condition {} of {} succeeded: {}", i + 1, conditions.len(), condition.describe());
+                            }
+                            return Ok(true);
+                        }
+                        Ok(false) => continue,
+                        Err(e) => return Err(e),
+                    }
+                }
+                false
+            }
+            
+            Condition::Not { condition } => !condition.evaluate()?,
+            
             Condition::FileExists { path } => {
-                Ok(std::path::Path::new(path).exists() && std::path::Path::new(path).is_file())
+                let expanded = shellexpand::tilde(path);
+                Path::new(expanded.as_ref()).is_file()
             }
+            
             Condition::DirectoryExists { path } => {
-                Ok(std::path::Path::new(path).exists() && std::path::Path::new(path).is_dir())
+                let expanded = shellexpand::tilde(path);
+                Path::new(expanded.as_ref()).is_dir()
             }
+            
+            Condition::CommandExists { command } => {
+                which::which(command).is_ok()
+            }
+            
             Condition::CommandSucceeds { command, args } => {
-                use std::process::Command;
-
-                let mut cmd = Command::new("sh");
-                cmd.arg("-c");
-
+                let mut cmd = Command::new(command);
                 if let Some(args) = args {
-                    cmd.arg(format!("{} {}", command, args.join(" ")));
-                } else {
-                    cmd.arg(command);
+                    cmd.args(args);
                 }
-
+                
                 match cmd.output() {
-                    Ok(output) => Ok(output.status.success()),
-                    Err(e) => Err(format!("Failed to execute command: {}", e)),
+                    Ok(output) => output.status.success(),
+                    Err(_) => false,
                 }
             }
+            
             Condition::EnvironmentVariable { name, value } => {
                 match std::env::var(name) {
-                    Ok(actual_value) => {
-                        if let Some(expected_value) = value {
-                            Ok(actual_value == *expected_value)
+                    Ok(env_value) => {
+                        if let Some(expected) = value {
+                            env_value == *expected
                         } else {
-                            Ok(true) // Variable exists
+                            true
                         }
                     }
-                    Err(_) => Ok(false), // Variable doesn't exist
+                    Err(_) => false,
                 }
             }
-            Condition::SystemProperty { path, value, operator } => {
-                // Get system info
+            
+            Condition::SystemProperty { path, operator, value } => {
                 let info = crate::system_info::get_system_info();
                 
-                // Parse the property path and get the value
-                let actual_value = match path.as_str() {
-                    "os.family" => serde_json::Value::String(info.os.family),
-                    "os.distro" => serde_json::Value::String(info.os.distro),
-                    "os.version" => serde_json::Value::String(info.os.version),
-                    "os.codename" => serde_json::Value::String(info.os.codename),
-                    "hardware.fingerprint" => serde_json::Value::Bool(info.hardware.fingerprint),
-                    "hardware.tpm" => serde_json::Value::Bool(info.hardware.tpm),
-                    "hardware.gpu_vendor" => serde_json::Value::String(info.hardware.gpu_vendor),
-                    "auth.type" => serde_json::Value::String(info.auth.auth_type),
-                    "auth.method" => serde_json::Value::String(info.auth.method),
-                    "user.name" => serde_json::Value::String(info.user.name),
-                    "user.shell" => serde_json::Value::String(info.user.shell),
-                    "user.home" => serde_json::Value::String(info.user.home),
-                    _ => return Err(format!("Unknown system property: {}", path)),
-                };
-                
-                // Compare values based on operator
-                match operator {
-                    ComparisonOperator::Equals => Ok(actual_value == *value),
-                    ComparisonOperator::NotEquals => Ok(actual_value != *value),
-                    ComparisonOperator::Contains => {
-                        match (&actual_value, value) {
-                            (serde_json::Value::String(s1), serde_json::Value::String(s2)) => {
-                                Ok(s1.contains(s2.as_str()))
-                            }
-                            _ => Err("Contains operator only works with strings".to_string()),
+                match get_property_value(&info, path) {
+                    Some(prop_value) => {
+                        match operator {
+                            ComparisonOperator::Equals => prop_value == *value,
+                            ComparisonOperator::NotEquals => prop_value != *value,
+                            ComparisonOperator::Contains => prop_value.contains(value),
+                            ComparisonOperator::StartsWith => prop_value.starts_with(value),
+                            ComparisonOperator::EndsWith => prop_value.ends_with(value),
                         }
                     }
-                    ComparisonOperator::GreaterThan | ComparisonOperator::LessThan => {
-                        match (&actual_value, value) {
-                            (serde_json::Value::Number(n1), serde_json::Value::Number(n2)) => {
-                                if let (Some(f1), Some(f2)) = (n1.as_f64(), n2.as_f64()) {
-                                    Ok(match operator {
-                                        ComparisonOperator::GreaterThan => f1 > f2,
-                                        ComparisonOperator::LessThan => f1 < f2,
-                                        _ => unreachable!(),
-                                    })
-                                } else {
-                                    Err("Cannot compare numbers".to_string())
-                                }
-                            }
-                            _ => Err("Comparison operators only work with numbers".to_string()),
-                        }
-                    }
+                    None => false,
                 }
             }
-            Condition::CommandExists { command } => {
-                Ok(which::which(command).is_ok())
+            
+            Condition::SecretExists { reference } => {
+                // For now, we just check if it's a valid reference format
+                // In the future, we could actually check with the secret provider
+                reference.starts_with("op://") || 
+                reference.starts_with("env://") || 
+                reference.starts_with("literal://")
             }
-            Condition::AllOf { conditions } => {
-                for condition in conditions {
-                    if !condition.evaluate()? {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
-            Condition::AnyOf { conditions } => {
-                for condition in conditions {
-                    if condition.evaluate()? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-            Condition::Not { condition } => Ok(!condition.evaluate()?),
+        };
+        
+        if verbose {
+            let emoji = if result { "✓" } else { "✗" };
+            println!("      {} Condition {}: {}", emoji, if result { "passed" } else { "failed" }, self.describe());
         }
+        
+        Ok(result)
     }
-
-    /// Get a description of the condition
+    
     pub fn describe(&self) -> String {
         match self {
-            Condition::FileExists { path } => format!("file exists: {}", path),
-            Condition::DirectoryExists { path } => format!("directory exists: {}", path),
+            Condition::AllOf { conditions } => {
+                format!("all of {} conditions", conditions.len())
+            }
+            Condition::AnyOf { conditions } => {
+                format!("any of {} conditions", conditions.len())
+            }
+            Condition::Not { condition } => {
+                format!("not ({})", condition.describe())
+            }
+            Condition::FileExists { path } => {
+                format!("file exists: {}", path)
+            }
+            Condition::DirectoryExists { path } => {
+                format!("directory exists: {}", path)
+            }
+            Condition::CommandExists { command } => {
+                format!("command exists: {}", command)
+            }
             Condition::CommandSucceeds { command, args } => {
                 if let Some(args) = args {
                     format!("command succeeds: {} {}", command, args.join(" "))
@@ -169,58 +199,123 @@ impl Condition {
             }
             Condition::EnvironmentVariable { name, value } => {
                 if let Some(value) = value {
-                    format!("env var {}={}", name, value)
+                    format!("environment variable {} = {}", name, value)
                 } else {
-                    format!("env var {} is set", name)
+                    format!("environment variable {} is set", name)
                 }
             }
-            Condition::SystemProperty { path, value, operator } => {
+            Condition::SystemProperty { path, operator, value } => {
                 let op_str = match operator {
                     ComparisonOperator::Equals => "==",
                     ComparisonOperator::NotEquals => "!=",
                     ComparisonOperator::Contains => "contains",
-                    ComparisonOperator::GreaterThan => ">",
-                    ComparisonOperator::LessThan => "<",
+                    ComparisonOperator::StartsWith => "starts with",
+                    ComparisonOperator::EndsWith => "ends with",
                 };
-                format!("{} {} {}", path, op_str, value)
+                format!("system property {} {} {}", path, op_str, value)
             }
-            Condition::CommandExists { command } => {
-                format!("command exists: {}", command)
+            Condition::SecretExists { reference } => {
+                format!("secret exists: {}", reference)
             }
-            Condition::AllOf { conditions } => {
-                let descs: Vec<String> = conditions.iter().map(|c| c.describe()).collect();
-                format!("all of: [{}]", descs.join(", "))
-            }
-            Condition::AnyOf { conditions } => {
-                let descs: Vec<String> = conditions.iter().map(|c| c.describe()).collect();
-                format!("any of: [{}]", descs.join(", "))
-            }
-            Condition::Not { condition } => format!("not: {}", condition.describe()),
         }
     }
 }
 
-// Helper functions for TypeScript
-#[typescript_fn]
-pub fn file_exists(path: String) -> Condition {
-    Condition::FileExists { path }
+// Builder pattern for conditions
+#[typescript_type]
+pub struct ConditionBuilder {
+    condition: Condition,
 }
 
-#[typescript_fn]
-pub fn directory_exists(path: String) -> Condition {
-    Condition::DirectoryExists { path }
+#[typescript_impl]
+impl ConditionBuilder {
+    pub fn new(condition: Condition) -> Self {
+        ConditionBuilder { condition }
+    }
+    
+    pub fn and(self, other: Condition) -> Self {
+        ConditionBuilder {
+            condition: Condition::AllOf {
+                conditions: vec![self.condition, other],
+            },
+        }
+    }
+    
+    pub fn or(self, other: Condition) -> Self {
+        ConditionBuilder {
+            condition: Condition::AnyOf {
+                conditions: vec![self.condition, other],
+            },
+        }
+    }
+    
+    pub fn not(self) -> Self {
+        ConditionBuilder {
+            condition: Condition::Not {
+                condition: Box::new(self.condition),
+            },
+        }
+    }
+    
+    pub fn build(self) -> Condition {
+        self.condition
+    }
 }
 
-#[typescript_fn]
-pub fn command_succeeds(command: String, args: Option<Vec<String>>) -> Condition {
-    Condition::CommandSucceeds { command, args }
+// Property path builder for system properties
+#[typescript_type]
+pub struct PropertyBuilder {
+    path: String,
 }
 
-#[typescript_fn]
-pub fn env_var(name: String, value: Option<String>) -> Condition {
-    Condition::EnvironmentVariable { name, value }
+#[typescript_impl]
+impl PropertyBuilder {
+    pub fn new(path: String) -> Self {
+        PropertyBuilder { path }
+    }
+    
+    pub fn equals(self, value: String) -> Condition {
+        Condition::SystemProperty {
+            path: self.path,
+            operator: ComparisonOperator::Equals,
+            value,
+        }
+    }
+    
+    pub fn not_equals(self, value: String) -> Condition {
+        Condition::SystemProperty {
+            path: self.path,
+            operator: ComparisonOperator::NotEquals,
+            value,
+        }
+    }
+    
+    pub fn contains(self, value: String) -> Condition {
+        Condition::SystemProperty {
+            path: self.path,
+            operator: ComparisonOperator::Contains,
+            value,
+        }
+    }
+    
+    pub fn starts_with(self, value: String) -> Condition {
+        Condition::SystemProperty {
+            path: self.path,
+            operator: ComparisonOperator::StartsWith,
+            value,
+        }
+    }
+    
+    pub fn ends_with(self, value: String) -> Condition {
+        Condition::SystemProperty {
+            path: self.path,
+            operator: ComparisonOperator::EndsWith,
+            value,
+        }
+    }
 }
 
+// Helper functions for creating conditions
 #[typescript_fn]
 pub fn all_of(conditions: Vec<Condition>) -> Condition {
     Condition::AllOf { conditions }
@@ -239,110 +334,187 @@ pub fn not(condition: Condition) -> Condition {
 }
 
 #[typescript_fn]
+pub fn file_exists(path: String) -> Condition {
+    Condition::FileExists { path }
+}
+
+#[typescript_fn]
+pub fn directory_exists(path: String) -> Condition {
+    Condition::DirectoryExists { path }
+}
+
+#[typescript_fn]
 pub fn command_exists(command: String) -> Condition {
     Condition::CommandExists { command }
 }
 
-// Builder-style functions for system properties
-#[typescript_type]
-pub struct PropertyBuilder {
-    pub path: String,
+#[typescript_fn]
+pub fn command_succeeds(command: String, args: Option<Vec<String>>) -> Condition {
+    Condition::CommandSucceeds { command, args }
 }
 
-#[typescript_impl]
-impl PropertyBuilder {
-    pub fn equals(self, value: serde_json::Value) -> Condition {
-        Condition::SystemProperty {
-            path: self.path,
-            value,
-            operator: ComparisonOperator::Equals,
-        }
-    }
-    
-    pub fn not_equals(self, value: serde_json::Value) -> Condition {
-        Condition::SystemProperty {
-            path: self.path,
-            value,
-            operator: ComparisonOperator::NotEquals,
-        }
-    }
-    
-    pub fn contains(self, value: String) -> Condition {
-        Condition::SystemProperty {
-            path: self.path,
-            value: serde_json::Value::String(value),
-            operator: ComparisonOperator::Contains,
-        }
-    }
-    
-    pub fn is_true(self) -> Condition {
-        Condition::SystemProperty {
-            path: self.path,
-            value: serde_json::Value::Bool(true),
-            operator: ComparisonOperator::Equals,
-        }
-    }
-    
-    pub fn is_false(self) -> Condition {
-        Condition::SystemProperty {
-            path: self.path,
-            value: serde_json::Value::Bool(false),
-            operator: ComparisonOperator::Equals,
-        }
-    }
+#[typescript_fn]
+pub fn env_var(name: String, value: Option<String>) -> Condition {
+    Condition::EnvironmentVariable { name, value }
 }
 
 #[typescript_fn]
 pub fn property(path: String) -> PropertyBuilder {
-    PropertyBuilder { path }
+    PropertyBuilder::new(path)
 }
 
-// Convenient builder for command output checking
-#[typescript_type]
-pub struct CommandBuilder {
-    pub command: String,
-}
-
-#[typescript_impl]
-impl CommandBuilder {
-    pub fn succeeds(self) -> Condition {
-        Condition::CommandSucceeds {
-            command: self.command,
-            args: None,
-        }
-    }
-    
-    pub fn exists(self) -> Condition {
-        Condition::CommandExists {
-            command: self.command,
-        }
-    }
-    
-    pub fn contains(self, text: String, case_insensitive: bool) -> Condition {
-        let cmd = if case_insensitive {
-            format!("{} | grep -qi '{}'", self.command, text)
-        } else {
-            format!("{} | grep -q '{}'", self.command, text)
-        };
-        Condition::CommandSucceeds {
-            command: cmd,
-            args: None,
-        }
+// Convenience functions for boolean operations
+#[typescript_fn]
+pub fn and(a: Condition, b: Condition) -> Condition {
+    Condition::AllOf {
+        conditions: vec![a, b],
     }
 }
 
 #[typescript_fn]
-pub fn command(cmd: String) -> CommandBuilder {
-    CommandBuilder { command: cmd }
+pub fn or(a: Condition, b: Condition) -> Condition {
+    Condition::AnyOf {
+        conditions: vec![a, b],
+    }
 }
 
-// Aliases for more intuitive API
+// Alias for command_succeeds with no args
 #[typescript_fn]
-pub fn or(conditions: Vec<Condition>) -> Condition {
-    any_of(conditions)
+pub fn command(command: String) -> Condition {
+    Condition::CommandSucceeds {
+        command,
+        args: None,
+    }
 }
 
+// New secret-related condition helper
 #[typescript_fn]
-pub fn and(conditions: Vec<Condition>) -> Condition {
-    all_of(conditions)
+pub fn secret_exists(reference: String) -> Condition {
+    Condition::SecretExists { reference }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_exists() {
+        let condition = file_exists("/etc/passwd".to_string());
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = file_exists("/nonexistent".to_string());
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_directory_exists() {
+        let condition = directory_exists("/tmp".to_string());
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = directory_exists("/nonexistent".to_string());
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_command_exists() {
+        let condition = command_exists("sh".to_string());
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = command_exists("nonexistent_command".to_string());
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_all_of() {
+        let condition = all_of(vec![
+            file_exists("/etc/passwd".to_string()),
+            directory_exists("/tmp".to_string()),
+        ]);
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = all_of(vec![
+            file_exists("/etc/passwd".to_string()),
+            file_exists("/nonexistent".to_string()),
+        ]);
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_any_of() {
+        let condition = any_of(vec![
+            file_exists("/nonexistent".to_string()),
+            directory_exists("/tmp".to_string()),
+        ]);
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = any_of(vec![
+            file_exists("/nonexistent1".to_string()),
+            file_exists("/nonexistent2".to_string()),
+        ]);
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_not() {
+        let condition = not(file_exists("/nonexistent".to_string()));
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = not(file_exists("/etc/passwd".to_string()));
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_environment_variable() {
+        std::env::set_var("TEST_VAR", "test_value");
+        
+        let condition = env_var("TEST_VAR".to_string(), Some("test_value".to_string()));
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = env_var("TEST_VAR".to_string(), Some("wrong_value".to_string()));
+        assert!(!condition.evaluate().unwrap_or(true));
+
+        let condition = env_var("TEST_VAR".to_string(), None);
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = env_var("NONEXISTENT_VAR".to_string(), None);
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_secret_exists() {
+        let condition = secret_exists("op://Personal/GitHub/token".to_string());
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = secret_exists("env://MY_SECRET".to_string());
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = secret_exists("literal://my-value".to_string());
+        assert!(condition.evaluate().unwrap_or(false));
+
+        let condition = secret_exists("invalid-reference".to_string());
+        assert!(!condition.evaluate().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_builder_pattern() {
+        let builder = ConditionBuilder::new(file_exists("/etc/passwd".to_string()));
+        let condition = builder.and(directory_exists("/tmp".to_string())).build();
+        
+        match condition {
+            Condition::AllOf { conditions } => assert_eq!(conditions.len(), 2),
+            _ => panic!("Expected AllOf condition"),
+        }
+    }
+
+    #[test]
+    fn test_describe() {
+        let condition = file_exists("/etc/passwd".to_string());
+        assert_eq!(condition.describe(), "file exists: /etc/passwd");
+
+        let condition = all_of(vec![
+            file_exists("/etc/passwd".to_string()),
+            directory_exists("/tmp".to_string()),
+        ]);
+        assert_eq!(condition.describe(), "all of 2 conditions");
+    }
 }

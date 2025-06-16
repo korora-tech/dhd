@@ -61,29 +61,29 @@ mod tests {
     fn test_checksum_creation() {
         let checksum = Checksum {
             algorithm: "sha256".to_string(),
-            value: "abc123".to_string(),
+            value: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
         };
 
         assert_eq!(checksum.algorithm, "sha256");
-        assert_eq!(checksum.value, "abc123");
+        assert_eq!(checksum.value, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     }
 
     #[test]
     fn test_http_download_creation() {
         let checksum = Checksum {
             algorithm: "sha256".to_string(),
-            value: "test_hash".to_string(),
+            value: "d2d2c76b7c7a3e7816a8e7f7c7c8d6f7c8a2b1c2d3e4f5a6b7c8d9e0f1a2b3c4".to_string(),
         };
 
         let action = HttpDownload {
-            url: "https://example.com/file.bin".to_string(),
-            destination: "/tmp/file.bin".to_string(),
+            url: "https://github.com/kubernetes/kubectl/releases/download/v1.28.0/kubectl".to_string(),
+            destination: "/usr/local/bin/kubectl".to_string(),
             checksum: Some(checksum),
             mode: Some(0o755),
         };
 
-        assert_eq!(action.url, "https://example.com/file.bin");
-        assert_eq!(action.destination, "/tmp/file.bin");
+        assert_eq!(action.url, "https://github.com/kubernetes/kubectl/releases/download/v1.28.0/kubectl");
+        assert_eq!(action.destination, "/usr/local/bin/kubectl");
         assert!(action.checksum.is_some());
         assert_eq!(action.mode, Some(0o755));
     }
@@ -91,16 +91,16 @@ mod tests {
     #[test]
     fn test_http_download_helper_function() {
         let action = http_download(HttpDownload {
-            url: "https://example.com/file.bin".to_string(),
-            destination: "/tmp/file.bin".to_string(),
+            url: "https://get.helm.sh/helm-v3.13.0-linux-amd64.tar.gz".to_string(),
+            destination: "/tmp/helm.tar.gz".to_string(),
             checksum: None,
             mode: None,
         });
 
         match action {
             crate::actions::ActionType::HttpDownload(download) => {
-                assert_eq!(download.url, "https://example.com/file.bin");
-                assert_eq!(download.destination, "/tmp/file.bin");
+                assert_eq!(download.url, "https://get.helm.sh/helm-v3.13.0-linux-amd64.tar.gz");
+                assert_eq!(download.destination, "/tmp/helm.tar.gz");
                 assert!(download.checksum.is_none());
                 assert!(download.mode.is_none());
             }
@@ -111,8 +111,8 @@ mod tests {
     #[test]
     fn test_http_download_name() {
         let action = HttpDownload {
-            url: "https://example.com/file.bin".to_string(),
-            destination: "/tmp/file.bin".to_string(),
+            url: "https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip".to_string(),
+            destination: "/tmp/terraform.zip".to_string(),
             checksum: None,
             mode: None,
         };
@@ -123,8 +123,8 @@ mod tests {
     #[test]
     fn test_http_download_plan() {
         let action = HttpDownload {
-            url: "https://example.com/file.bin".to_string(),
-            destination: "/tmp/file.bin".to_string(),
+            url: "https://nodejs.org/dist/v20.10.0/node-v20.10.0-linux-x64.tar.xz".to_string(),
+            destination: "/opt/node-v20.tar.xz".to_string(),
             checksum: None,
             mode: None,
         };
@@ -143,8 +143,8 @@ mod tests {
         };
 
         let action = HttpDownload {
-            url: "https://github.com/sigstore/gitsign/releases/download/v0.11.0/file".to_string(),
-            destination: "/tmp/file".to_string(),
+            url: "https://github.com/sigstore/cosign/releases/download/v2.2.0/cosign-linux-amd64".to_string(),
+            destination: "/usr/local/bin/cosign".to_string(),
             checksum: Some(checksum),
             mode: Some(0o755),
         };
@@ -157,31 +157,31 @@ mod tests {
     #[test]
     fn test_http_download_home_expansion() {
         unsafe {
-            std::env::set_var("HOME", "/home/testuser");
+            std::env::set_var("HOME", "/home/developer");
         }
 
         let action = HttpDownload {
-            url: "https://example.com/file.bin".to_string(),
-            destination: "~/bin/file.bin".to_string(),
+            url: "https://go.dev/dl/go1.21.5.linux-amd64.tar.gz".to_string(),
+            destination: "~/tools/go1.21.5.tar.gz".to_string(),
             checksum: None,
             mode: None,
         };
 
         let atoms = action.plan(std::path::Path::new("."));
         assert_eq!(atoms.len(), 1);
-        assert!(atoms[0].describe().contains("/home/testuser/bin/file.bin"));
+        assert!(atoms[0].describe().contains("/home/developer/tools/go1.21.5.tar.gz"));
     }
 
     #[test]
     fn test_checksum_string_formatting() {
         let checksum = Checksum {
-            algorithm: "sha256".to_string(),
-            value: "abc123".to_string(),
+            algorithm: "sha512".to_string(),
+            value: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e".to_string(),
         };
 
         let action = HttpDownload {
-            url: "https://example.com/file.bin".to_string(),
-            destination: "/tmp/file.bin".to_string(),
+            url: "https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz".to_string(),
+            destination: "/tmp/docker.tgz".to_string(),
             checksum: Some(checksum),
             mode: None,
         };

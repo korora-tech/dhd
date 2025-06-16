@@ -209,13 +209,17 @@ mod tests {
     fn test_git_config_creation() {
         let entries = vec![GitConfigEntry {
             key: "user.name".to_string(),
-            value: "Test User".to_string(),
+            value: "John Developer".to_string(),
+            add: None,
+        }, GitConfigEntry {
+            key: "user.email".to_string(),
+            value: "john@company.com".to_string(),
             add: None,
         }];
 
         let git_config = GitConfig::new(entries.clone(), GitConfigScope::Global, false);
 
-        assert_eq!(git_config.entries.len(), 1);
+        assert_eq!(git_config.entries.len(), 2);
         assert_eq!(git_config.scope, GitConfigScope::Global);
         assert!(!git_config.unset);
     }
@@ -231,12 +235,22 @@ mod tests {
         let entries = vec![
             GitConfigEntry {
                 key: "user.name".to_string(),
-                value: "Test".to_string(),
+                value: "DevOps Team".to_string(),
                 add: None,
             },
             GitConfigEntry {
                 key: "user.email".to_string(),
-                value: "test@example.com".to_string(),
+                value: "devops@company.com".to_string(),
+                add: None,
+            },
+            GitConfigEntry {
+                key: "core.editor".to_string(),
+                value: "vim".to_string(),
+                add: None,
+            },
+            GitConfigEntry {
+                key: "pull.rebase".to_string(),
+                value: "true".to_string(),
                 add: None,
             },
         ];
@@ -244,7 +258,7 @@ mod tests {
         let git_config = GitConfig::new(entries, GitConfigScope::Global, false);
         assert_eq!(
             git_config.describe(),
-            "Set global git configuration (2 entries)"
+            "Set global git configuration (4 entries)"
         );
 
         let git_config_unset = GitConfig::new(vec![], GitConfigScope::Local, true);
@@ -259,18 +273,28 @@ mod tests {
         let entries = vec![
             GitConfigEntry {
                 key: "credential.helper".to_string(),
-                value: "store".to_string(),
+                value: "osxkeychain".to_string(),
                 add: Some(true),
             },
             GitConfigEntry {
                 key: "credential.helper".to_string(),
-                value: "cache".to_string(),
+                value: "manager-core".to_string(),
                 add: Some(true),
+            },
+            GitConfigEntry {
+                key: "url.git@github.com:.insteadOf".to_string(),
+                value: "https://github.com/".to_string(),
+                add: None,
+            },
+            GitConfigEntry {
+                key: "core.sshCommand".to_string(),
+                value: "ssh -i ~/.ssh/id_ed25519_work".to_string(),
+                add: None,
             },
         ];
 
         let git_config = GitConfig::new(entries, GitConfigScope::Global, false);
-        assert_eq!(git_config.entries.len(), 2);
+        assert_eq!(git_config.entries.len(), 4);
         assert_eq!(git_config.entries[0].add, Some(true));
         assert_eq!(git_config.entries[1].add, Some(true));
     }

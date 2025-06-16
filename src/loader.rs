@@ -284,11 +284,13 @@ fn parse_action_call(expr: &Expression) -> Result<ActionType, String> {
                                 .ok_or_else(|| format!("executeCommand requires 'command' property"))?;
                             let args = get_array_of_strings(obj, "args");
                             let escalate = get_bool_prop(obj, "escalate").unwrap_or(false);
+                            let environment = get_hashmap_prop(obj, "environment");
                             return Ok(ActionType::ExecuteCommand(ExecuteCommand {
                                 shell,
                                 command,
                                 args,
                                 escalate: Some(escalate),
+                                environment,
                             }));
                         }
                         "copyFile" => {
@@ -463,6 +465,39 @@ fn get_array_of_strings(obj: &ObjectExpression, key: &str) -> Option<Vec<String>
 fn get_package_manager(obj: &ObjectExpression, key: &str) -> Option<PackageManager> {
     let manager_str = get_string_prop(obj, key)?;
     PackageManager::from_str(&manager_str).ok()
+}
+
+fn get_hashmap_prop(obj: &ObjectExpression, key: &str) -> Option<std::collections::HashMap<String, String>> {
+    for prop in &obj.properties {
+        if let ObjectPropertyKind::ObjectProperty(prop) = prop {
+            let prop_key = match &prop.key {
+                PropertyKey::StaticIdentifier(ident) => ident.name.as_str(),
+                PropertyKey::StringLiteral(lit) => lit.value.as_str(),
+                _ => continue,
+            };
+
+            if prop_key == key {
+                if let Expression::ObjectExpression(inner_obj) = &prop.value {
+                    let mut map = std::collections::HashMap::new();
+                    for inner_prop in &inner_obj.properties {
+                        if let ObjectPropertyKind::ObjectProperty(inner_prop) = inner_prop {
+                            let inner_key = match &inner_prop.key {
+                                PropertyKey::StaticIdentifier(ident) => ident.name.as_str(),
+                                PropertyKey::StringLiteral(lit) => lit.value.as_str(),
+                                _ => continue,
+                            };
+                            
+                            if let Expression::StringLiteral(lit) = &inner_prop.value {
+                                map.insert(inner_key.to_string(), lit.value.to_string());
+                            }
+                        }
+                    }
+                    return Some(map);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn get_bool_prop(obj: &ObjectExpression, key: &str) -> Option<bool> {
@@ -671,11 +706,25 @@ fn parse_action(expr: &Expression) -> Option<ActionType> {
                     .get("escalate")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
+                let environment = props
+                    .get("environment")
+                    .and_then(|v| v.as_object())
+                    .map(|obj| {
+                        let mut map = std::collections::HashMap::new();
+                        for (k, v) in obj {
+                            if let Some(s) = v.as_str() {
+                                map.insert(k.clone(), s.to_string());
+                            }
+                        }
+                        map
+                    })
+                    .filter(|m| !m.is_empty());
                 return Some(ActionType::ExecuteCommand(ExecuteCommand {
                     shell,
                     command,
                     args,
                     escalate: Some(escalate),
+                    environment,
                 }));
             }
             Some("CopyFile") => {
@@ -937,12 +986,12 @@ fn parse_condition_builder_method(builder_expr: &Expression, method: &str, args:
                             return match method {
                                 "isTrue" => Some(Condition::SystemProperty {
                                     path,
-                                    value: serde_json::Value::Bool(true),
+                                    value: "true".to_string(),
                                     operator: ComparisonOperator::Equals,
                                 }),
                                 "isFalse" => Some(Condition::SystemProperty {
                                     path,
-                                    value: serde_json::Value::Bool(false),
+                                    value: "false".to_string(),
                                     operator: ComparisonOperator::Equals,
                                 }),
                                 "equals" => {
@@ -950,7 +999,7 @@ fn parse_condition_builder_method(builder_expr: &Expression, method: &str, args:
                                         if let Some(value) = parse_json_value(args[0].as_expression()?) {
                                             return Some(Condition::SystemProperty {
                                                 path,
-                                                value,
+                                                value: value.to_string(),
                                                 operator: ComparisonOperator::Equals,
                                             });
                                         }
@@ -962,7 +1011,7 @@ fn parse_condition_builder_method(builder_expr: &Expression, method: &str, args:
                                         if let Some(Expression::StringLiteral(lit)) = args[0].as_expression() {
                                             return Some(Condition::SystemProperty {
                                                 path,
-                                                value: serde_json::Value::String(lit.value.to_string()),
+                                                value: lit.value.to_string(),
                                                 operator: ComparisonOperator::Contains,
                                             });
                                         }
