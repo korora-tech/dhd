@@ -14,6 +14,7 @@ pub mod npm;
 pub mod pacman;
 pub mod pip;
 pub mod snap;
+pub mod uv;
 
 #[typescript_enum]
 pub enum PackageManager {
@@ -33,6 +34,7 @@ pub enum PackageManager {
     Pip,
     Gem,
     Nix,
+    Uv,
 }
 
 pub trait PackageProvider: Send + Sync {
@@ -87,6 +89,7 @@ impl FromStr for PackageManager {
             "pip" => Ok(PackageManager::Pip),
             "gem" => Ok(PackageManager::Gem),
             "nix" => Ok(PackageManager::Nix),
+            "uv" => Ok(PackageManager::Uv),
             _ => Err(format!("Unknown package manager: {}", s)),
         }
     }
@@ -107,6 +110,7 @@ impl PackageManager {
             PackageManager::Snap => Box::new(snap::SnapProvider),
             PackageManager::Go => Box::new(go::GoProvider),
             PackageManager::Pip => Box::new(pip::PipProvider),
+            PackageManager::Uv => Box::new(uv::UvProvider),
             _ => panic!("Provider not implemented for {:?}", self),
         }
     }
@@ -124,6 +128,7 @@ impl PackageManager {
             PackageManager::Cargo,
             PackageManager::Go,
             PackageManager::Pip,
+            PackageManager::Uv,
         ];
 
         managers
