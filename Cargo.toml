@@ -13,7 +13,7 @@ dhd-macros = { path = "dhd-macros" }
 oxc_parser = "0.22"
 oxc_ast = "0.22"
 oxc_span = "0.22"
-oxc_allocator = "0.22"
+oxc_allocator = "0.54"
 indicatif = "0.17"
 directories = "5.0"
 anyhow = "1.0"
