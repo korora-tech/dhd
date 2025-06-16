@@ -10,7 +10,7 @@ serde_json = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 linkme = "0.3"
 dhd-macros = { path = "dhd-macros" }
-oxc_parser = "0.22"
+oxc_parser = "0.54"
 oxc_ast = "0.22"
 oxc_span = "0.22"
 oxc_allocator = "0.22"
